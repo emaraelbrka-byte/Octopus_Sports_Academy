@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Octopus Sports Academy</title>
+  <meta name="description" content="Book swimming classes at your condo in Malaysia. QR attendance and coach feedback.">
+  <meta name="theme-color" content="#0a6cff">
+  <script>
+    // Apply the saved light/dark choice before the page paints (no flash). No saved choice = follow the phone/PC setting.
+    try { var t = localStorage.getItem('osa_theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="#/" class="brand">🐙 Octopus Sports Academy</a>
+    <div class="topbar-right">
+      <nav id="nav"></nav>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch to dark mode">🌙</button>
+    </div>
+  </header>
+  <main id="app" class="container" aria-live="polite"></main>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <!-- admin.js must load before app.js: app.js's route table refers to the admin() function -->
+  <script src="admin.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
