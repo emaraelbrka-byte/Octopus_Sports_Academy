@@ -4,8 +4,9 @@ const { query } = require('../db');
 
 const COOKIE = 'osa_session';
 
-function setSessionCookie(res, userId) {
-  const token = jwt.sign({ sub: userId }, config.jwtSecret, { expiresIn: '7d' });
+// version = the user's session_version now; the cookie stops working when that number changes
+function setSessionCookie(res, userId, version = 0) {
+  const token = jwt.sign({ sub: userId, v: version }, config.jwtSecret, { expiresIn: '7d' });
   res.cookie(COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -25,12 +26,21 @@ async function loadUser(req, _res, next) {
   try {
     const payload = jwt.verify(token, config.jwtSecret);
     const { rows } = await query(
-      'SELECT id, username, email, phone, role, email_verified FROM users WHERE id = $1',
+      'SELECT id, username, email, phone, role, email_verified, session_version FROM users WHERE id = $1',
       [payload.sub]
     );
-    if (rows[0]) req.user = rows[0];
-  } catch (_) {
-    // invalid or expired token: treat as anonymous
+    // Cookies made before a logout / password change carry an older version: treat as logged out
+    if (rows[0] && (payload.v || 0) === rows[0].session_version) {
+      const { session_version: _v, ...user } = rows[0];
+      req.user = user;
+    }
+  } catch (err) {
+    // Expired or tampered cookie: normal, treat as anonymous. Anything else (e.g. database down) is a real problem.
+    if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+      if (config.env !== 'production') console.warn('[auth] ignoring session cookie:', err.message);
+    } else {
+      console.error('[auth] could not load the user for this request:', err);
+    }
   }
   next();
 }

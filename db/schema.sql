@@ -185,7 +185,6 @@ CREATE TABLE IF NOT EXISTS session_rsvps (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (session_id, enrollment_id)
 );
-INSERT INTO app_settings (key, value) VALUES ('class_min_size', '4') ON CONFLICT (key) DO NOTHING;
 
 -- Small key/value settings editable by the admin (e.g. chat_retention_days)
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -195,6 +194,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
 INSERT INTO app_settings (key, value) VALUES ('chat_retention_days', '15') ON CONFLICT (key) DO NOTHING;
 INSERT INTO app_settings (key, value) VALUES ('class_request_limit', '2') ON CONFLICT (key) DO NOTHING;
 INSERT INTO app_settings (key, value) VALUES ('class_request_wait_days', '15') ON CONFLICT (key) DO NOTHING;
+INSERT INTO app_settings (key, value) VALUES ('class_min_size', '4') ON CONFLICT (key) DO NOTHING;
 
 -- Per-condo chat. Old messages are deleted automatically after chat_retention_days.
 CREATE TABLE IF NOT EXISTS condo_messages (
@@ -227,3 +227,13 @@ DELETE FROM condos c WHERE c.is_published = FALSE
 ALTER TABLE session_rsvps ADD COLUMN IF NOT EXISTS reason TEXT;
 ALTER TABLE session_rsvps DROP CONSTRAINT IF EXISTS session_rsvps_reason_check;
 ALTER TABLE session_rsvps ADD CONSTRAINT session_rsvps_reason_check CHECK (reason IS NULL OR length(reason) <= 300);
+
+-- Session version: every login cookie carries the version it was made with. Logging out or changing the
+-- password adds 1, so every older cookie (on any device, or copied by someone) stops working at once.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INT NOT NULL DEFAULT 0;
+
+-- A group class is confirmed only when class_min_size people join, so it needs at least that many seats.
+-- Older group classes made with fewer seats are raised to the minimum (safe to run again: changes nothing then).
+UPDATE classes SET capacity = (SELECT COALESCE(NULLIF(value, '')::int, 4) FROM app_settings WHERE key = 'class_min_size')
+WHERE class_type = 'group'
+  AND capacity < (SELECT COALESCE(NULLIF(value, '')::int, 4) FROM app_settings WHERE key = 'class_min_size');

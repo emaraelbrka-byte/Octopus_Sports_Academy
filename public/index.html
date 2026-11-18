@@ -5,26 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Octopus Sports Academy</title>
   <meta name="description" content="Book swimming classes at your condo in Malaysia. QR attendance and coach feedback.">
-  <meta name="theme-color" content="#0a6cff">
+  <meta name="theme-color" content="#071a33">
   <script>
-    // Apply the saved light/dark choice before the page paints (no flash). No saved choice = follow the phone/PC setting.
-    try { var t = localStorage.getItem('osa_theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}
+    // Apply the light/dark choice before the page paints (no flash). Dark is the default; a saved choice wins.
+    var t = 'dark';
+    try { var saved = localStorage.getItem('osa_theme'); if (saved === 'dark' || saved === 'light') t = saved; }
+    catch (e) { console.warn('[theme] could not read the saved choice, using dark:', e.message); }
+    document.documentElement.dataset.theme = t;
   </script>
+  <link rel="icon" href="img/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="img/logo.svg">
   <link rel="manifest" href="manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Fonts are served from our own server (public/fonts). Preload starts both downloads right away,
+       in parallel with style.css, instead of waiting until the CSS has been read. -->
+  <link rel="preload" as="font" type="font/woff2" href="fonts/plus-jakarta-sans-latin.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="fonts/bricolage-grotesque-latin.woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
-    <a href="#/" class="brand">🐙 Octopus Sports Academy</a>
+    <a href="#/" class="brand" aria-label="Octopus Sports Academy home">
+      <img src="img/logo.svg" alt="" width="38" height="38">
+      <span class="brand-text"><span class="brand-name">Octopus</span><span class="brand-tag">Sports Academy</span></span>
+    </a>
     <div class="topbar-right">
       <nav id="nav"></nav>
-      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch to dark mode">🌙</button>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch to dark mode"></button>
     </div>
   </header>
   <main id="app" class="container" aria-live="polite"></main>
+  <footer class="site-footer">
+    <div class="inner">
+      <a href="#/" class="brand"><img src="img/logo.svg" alt="" width="30" height="30"><span class="brand-name">Octopus</span></a>
+      <span>Swimming classes at your condo · Malaysia</span>
+      <span>© <span id="year"></span> Octopus Sports Academy</span>
+    </div>
+  </footer>
   <div id="toast" class="toast" role="status" hidden></div>
   <!-- admin.js must load before app.js: app.js's route table refers to the admin() function -->
   <script src="admin.js" defer></script>

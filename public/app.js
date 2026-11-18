@@ -5,6 +5,55 @@ const TZ = 'Asia/Kuala_Lumpur';
 const LEVELS = ['beginner', 'intermediate', 'professional', 'champion'];
 const state = { user: null, loaded: false, timers: [], scanner: null };
 
+// Line icons (24px grid, drawn with currentColor so they follow the text colour)
+const ICON_PATHS = {
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="m8 12 2.7 2.7L16 9.5"/>',
+  building: '<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M2 21h20M8 7h4M8 11h4M8 15h4"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M14 21h3M21 18v3h-1"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14a6.5 6.5 0 0 1 3.5 6"/>',
+  pin: '<path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
+  whistle: '<circle cx="9" cy="14" r="6"/><path d="M13 9.5 21 6v5l-6 1.5M9 14h.01"/>',
+  chev: '<path d="m6 9 6 6 6-6"/>',
+  gift: '<rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13M12 8S10.5 3 8 3a2.5 2.5 0 0 0 0 5M12 8s1.5-5 4-5a2.5 2.5 0 0 1 0 5"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  wave: '<path d="M2 12c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5 0M2 18c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5 0"/><path d="M8 7a4 4 0 0 1 8 0"/>',
+  inbox: '<path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5.5 5h13L21 13v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/>',
+  tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+  sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+  star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  shield: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+};
+// "Ahmed Ali" -> "AA" for avatar circles
+const initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
+// Navy banner at the top of My profile (students and coaches): avatar, greeting, and up to three numbers
+function profileHero(user, stats) {
+  const roleLabel = { student: 'Member', coach: 'Coach', admin: 'Admin' }[user.role] || user.role;
+  return `
+    <section class="profile-hero">
+      <div class="profile-id">
+        <span class="avatar lg" aria-hidden="true">${esc(initials(user.username))}</span>
+        <div>
+          <span class="eyebrow">My profile</span>
+          <h1>Hi, ${esc(user.username)}</h1>
+          <div class="profile-meta"><span class="role-chip">${esc(roleLabel)}</span>${user.email ? `<span>${esc(user.email)}</span>` : ''}</div>
+        </div>
+      </div>
+      <div class="profile-stats">
+        ${stats.map(([id, value, label]) => `<div><strong id="${id}">${value}</strong><span>${label}</span></div>`).join('')}
+      </div>
+    </section>`;
+}
+const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
+const LOGO = '<img src="img/logo.svg" alt="">';
+
 // ---------- helpers ----------
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,7 +71,12 @@ async function api(path, { method, body } = {}) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   let data = {};
-  try { data = await res.json(); } catch (_) { /* empty body */ }
+  try {
+    data = await res.json();
+  } catch (err) {
+    // 204 = no content on purpose; anything else should have been JSON
+    if (res.status !== 204) console.warn('[api] response is not JSON:', path, res.status, err.message);
+  }
   if (!res.ok) {
     // Show the plain message only; the technical detail (development only) goes to the browser console
     if (data.detail) console.warn('[api]', path, data.detail);
@@ -57,8 +111,21 @@ function clearTimers() {
   document.querySelectorAll('#chatWidget, #chatFab').forEach((el) => el.remove());
   state.timers.forEach((t) => clearInterval(t));
   state.timers = [];
+  state.pollers = [];
   if (state.scanner) { state.scanner.stop(); state.scanner = null; }
 }
+
+// Repeats fn every ms while the tab is visible. A hidden tab makes no requests;
+// when the person comes back, fn runs at once so the page is up to date.
+// Stopped by clearTimers() like any other timer.
+function poll(fn, ms) {
+  state.pollers = state.pollers || [];
+  state.pollers.push(fn);
+  state.timers.push(setInterval(() => { if (!document.hidden) fn(); }, ms));
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) (state.pollers || []).forEach((fn) => fn());
+});
 
 // Bind a form: prevents default, passes a plain object of fields to handler, shows errors in [data-msg]
 function bindForm(sel, handler) {
@@ -101,12 +168,16 @@ function renderNav() {
     nav.innerHTML = onAuthPage ? '' : '<a href="#/login">Log in</a><a href="#/register">Sign up</a>';
     return;
   }
-  const links = ['<a href="#/">Home</a>', '<a href="#/me">My profile</a>'];
-  if (state.user.role === 'admin') links.push('<a href="#/admin">Admin</a>');
-  // Account menu: the arrow opens a small dropdown that holds Log out
+  const pageLinks = [['#/', 'Home'], ['#/me', 'My profile']];
+  if (state.user.role === 'admin') pageLinks.push(['#/admin', 'Admin']);
+  // Desktop shows the page links in the bar; phones show them inside the account menu
+  const links = pageLinks.map(([href, label]) => `<a href="${href}" class="nav-link">${label}</a>`);
+  // Account menu: the arrow opens a small dropdown with the page links (phones) and Log out
   links.push(`<div class="nav-menu">
-    <button class="secondary" id="navMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">▾</button>
+    <button class="secondary nav-account" id="navMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Account menu"><span class="avatar xs">${esc(initials(state.user.username))}</span>${icon('chev')}</button>
     <div class="nav-dropdown" id="navDropdown" hidden>
+      <div class="menu-who"><strong>${esc(state.user.username)}</strong><span>${esc(state.user.email || '')}</span></div>
+      ${pageLinks.map(([href, label]) => `<a href="${href}" class="menu-link">${label}</a>`).join('')}
       <button class="secondary" id="logout" type="button">Log out</button>
     </div>
   </div>`);
@@ -175,6 +246,7 @@ async function render() {
   const needsLogin = path === '/me' || path.startsWith('/join/') || path.startsWith('/new-class/') || path === '/new-condo' || path === '/checkin' || path === '/coach' || path.startsWith('/admin');
   if (needsLogin && !state.user) {
     if (path === '/checkin' && params.get('token')) sessionStorage.setItem('pendingCheckin', params.get('token'));
+    else rememberAfterLogin(location.hash);
     location.hash = '#/login';
     return;
   }
@@ -203,7 +275,7 @@ document.addEventListener('DOMContentLoaded', render);
 
 // ---------- light / dark theme ----------
 // The saved choice is applied by a small script in index.html before the page paints.
-// With no saved choice the site follows the phone/PC setting.
+// With no saved choice the site starts in dark mode.
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 function isDark() {
   const t = document.documentElement.dataset.theme;
@@ -213,18 +285,25 @@ function syncThemeButton() {
   const btn = $('#themeToggle');
   if (!btn) return;
   const dark = isDark();
-  btn.textContent = dark ? '☀️' : '🌙';
+  btn.innerHTML = icon(dark ? 'sun' : 'moon');
   btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
   btn.title = btn.getAttribute('aria-label');
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = dark ? '#0b1222' : '#0a6cff';
+  if (meta) meta.content = dark ? '#06142a' : '#071a33';
 }
 document.addEventListener('DOMContentLoaded', () => {
   syncThemeButton();
+  const year = $('#year');
+  if (year) year.textContent = new Date().getFullYear();
   $('#themeToggle').addEventListener('click', () => {
     const next = isDark() ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('osa_theme', next); } catch { /* private mode: the choice just isn't remembered */ }
+    try {
+      localStorage.setItem('osa_theme', next);
+    } catch (err) {
+      // Private mode / blocked storage: the theme still changes, it just is not remembered
+      console.warn('[theme] could not save the choice:', err.message);
+    }
     syncThemeButton();
   });
 });
@@ -241,8 +320,14 @@ function authShell(active, inner) {
   const pillAt = switching ? authAnim.last : active;
   const slide = switching ? (active === 'register' ? 'from-right' : 'from-left') : 'fade-in';
   return `
+    <div class="auth-split">
+    <aside class="auth-visual" aria-hidden="true">
+      <span class="eyebrow">Octopus Sports Academy</span>
+      <h2>The pool downstairs is your new classroom.</h2>
+      <p>Private and group swimming classes, held right at your condo.</p>
+    </aside>
     <div class="auth">
-      <div class="auth-logo" aria-hidden="true">🐙</div>
+      <img class="auth-logo" src="img/logo.svg" alt="">
       <h1>Octopus Sports Academy</h1>
       <p class="sub">Book swimming classes at your condo</p>
       <div class="card auth-card">
@@ -253,6 +338,7 @@ function authShell(active, inner) {
         </div>
         <div class="auth-body ${slide}">${inner}</div>
       </div>
+    </div>
     </div>`;
 }
 
@@ -288,6 +374,29 @@ function animateAuth(active) {
   card.querySelectorAll('.seg a').forEach((a) => a.addEventListener('click', () => { authAnim.height = card.offsetHeight; }));
 }
 
+// The page someone wanted before being sent to log in (e.g. "Join class"), so login can bring them back.
+// Only in-app hash routes are kept, never a full URL.
+const AFTER_LOGIN_KEY = 'osa_after_login';
+const SAFE_HASH = /^#\/[\w\-/?=&%.]*$/;
+function rememberAfterLogin(hash) {
+  if (!SAFE_HASH.test(hash) || /^#\/(login|register)\b/.test(hash)) return;
+  try {
+    sessionStorage.setItem(AFTER_LOGIN_KEY, hash);
+  } catch (err) {
+    console.warn('[login] could not remember the page to return to:', err.message);
+  }
+}
+function takeAfterLogin() {
+  try {
+    const hash = sessionStorage.getItem(AFTER_LOGIN_KEY);
+    sessionStorage.removeItem(AFTER_LOGIN_KEY);
+    return hash && SAFE_HASH.test(hash) ? hash : null;
+  } catch (err) {
+    console.warn('[login] could not read the page to return to:', err.message);
+    return null;
+  }
+}
+
 function login() {
   $('#app').innerHTML = authShell('login', `
       <form id="f">
@@ -308,7 +417,7 @@ function login() {
       sessionStorage.removeItem('pendingCheckin');
       location.hash = `#/checkin?token=${pending}`;
     } else {
-      location.hash = '#/';
+      location.hash = takeAfterLogin() || '#/';
     }
   });
 }
@@ -384,30 +493,49 @@ async function verify(_id, params) {
 function home() {
   $('#app').innerHTML = `
     <section class="hero">
-      <h1>Learn to swim at your condo</h1>
-      <p>Pick your condo, choose a class, pay and start your journey.</p>
+      <div class="hero-bg" aria-hidden="true"></div>
+      <span class="eyebrow">Swimming academy · Malaysia</span>
+      <h1>Learn to swim <em>at your condo</em></h1>
+      <p>Pick your condo, choose a class, pay and start your journey. No travel, no traffic.</p>
+      <form id="search" class="row" role="search">
+        <input id="q" class="inline-input" type="search" placeholder="Search your condo..." aria-label="Search condo">
+        <button type="submit">Search</button>
+      </form>
+      <ul class="hero-points">
+        <li>${icon('check')} Private &amp; group classes</li>
+        <li>${icon('check')} QR attendance</li>
+        <li>${icon('check')} Coach feedback</li>
+      </ul>
     </section>
-    <form id="search" class="row" role="search">
-      <input id="q" class="inline-input" type="search" placeholder="Search your condo..." aria-label="Search condo">
-      <button type="submit">Search</button>
-    </form>
-    <div id="results" style="margin-top:12px"></div>`;
+    <div class="section-head">
+      <div><span class="eyebrow">Find your pool</span><h2>Condos with classes</h2></div>
+    </div>
+    <div id="results"></div>
+    <div class="section-head">
+      <div><span class="eyebrow">How it works</span><h2>From sign-up to first splash</h2></div>
+    </div>
+    <div class="steps">
+      <div class="step-card"><div class="icon">${icon('building')}</div><h3>Find your condo</h3><p>Search for your building and see the classes running at its pool.</p></div>
+      <div class="step-card"><div class="icon">${icon('calendar')}</div><h3>Join a class</h3><p>Choose private or group lessons and a package that fits your week.</p></div>
+      <div class="step-card"><div class="icon">${icon('qr')}</div><h3>Scan &amp; swim</h3><p>Check in with a QR code at the pool and get feedback from your coach.</p></div>
+    </div>`;
   const load = async (q) => {
     let condos;
     try {
       ({ condos } = await api(`/condos?q=${encodeURIComponent(q)}`));
     } catch (err) {
-      $('#results').innerHTML = `<p class="error">Cannot load condos (${esc(err.message)}). Open the app at http://localhost:3001 and make sure the server and database are running.</p>`;
+      $('#results').innerHTML = `<p class="error">Cannot load condos right now (${esc(err.message)}). Please try again in a moment.</p>`;
       return;
     }
     // Ignore an old answer if the user has typed something else since
     if (q !== ($('#q')?.value.trim() ?? '')) return;
     $('#results').innerHTML = condos.length
-      ? condos.map((c) => `
+      ? `<div class="condo-list">${condos.map((c) => `
           <a class="card" href="#/condo/${esc(c.id)}">
-            ${c.image_url ? `<img src="${esc(c.image_url)}" alt="">` : ''}
-            <h3>${esc(c.name)}</h3><div class="muted">${esc(c.address || '')}</div>
-          </a>`).join('')
+            ${c.image_url ? `<img src="${esc(c.image_url)}" alt="">` : `<span class="condo-tile">${icon('building')}</span>`}
+            <span class="condo-info"><h3>${esc(c.name)}</h3><div class="muted">${esc(c.address || '')}</div></span>
+            <span class="condo-go">${icon('arrow')}</span>
+          </a>`).join('')}</div>`
       : `<div class="card">
           <p class="muted">We could not find your condo.</p>
           <a href="#/new-condo?name=${encodeURIComponent(q)}"><button type="button">Add your condo and class</button></a>
@@ -428,25 +556,36 @@ async function condo(id, params) {
   const type = params.get('type') || '';
   const { condo: c, classes, can_chat, min_size } = await api(`/condos/${encodeURIComponent(id)}${type ? `?type=${type}` : ''}`);
   state.minSize = min_size;
+  const filters = [['', 'All classes'], ['one_to_one', 'Private'], ['group', 'Group']];
   $('#app').innerHTML = `
-    <h1>${esc(c.name)}</h1>
-    ${c.image_url ? `<img src="${esc(c.image_url)}" alt="" class="card" style="padding:0;max-height:260px;object-fit:cover;width:100%">` : ''}
-    <p class="muted">${esc(c.address || '')}</p>
-    <div class="row" style="margin:12px 0">
-      <label for="type" style="margin:0">Class type</label>
-      <select id="type" class="inline-input" style="max-width:220px">
-        <option value="">All classes</option>
-        <option value="one_to_one" ${type === 'one_to_one' ? 'selected' : ''}>Private One to One</option>
-        <option value="group" ${type === 'group' ? 'selected' : ''}>Group</option>
-      </select>
-      <span class="spacer"></span>
-      <a href="#/new-class/${esc(id)}"><button type="button">+ Add class</button></a>
+    <p class="crumbs"><a href="#/">Condos</a><span>/</span>${esc(c.name)}</p>
+    <section class="condo-hero${c.image_url ? ' has-photo' : ''}">
+      ${c.image_url ? `<div class="hero-bg" style="background-image:url('${esc(c.image_url)}')" aria-hidden="true"></div>` : ''}
+      <div class="condo-hero-main">
+        <span class="condo-tile lg">${icon('building')}</span>
+        <div>
+          <span class="eyebrow">Swimming at your condo</span>
+          <h1>${esc(c.name)}</h1>
+          ${c.address ? `<p class="condo-address">${icon('pin')}${esc(c.address)}</p>` : ''}
+        </div>
+      </div>
+      <a href="#/new-class/${esc(id)}" class="hero-action"><button type="button">${icon('plus')} Add class</button></a>
+    </section>
+    <div class="section-head">
+      <div><span class="eyebrow">Timetable</span><h2>Classes at this condo</h2></div>
+      <div class="pills" role="group" aria-label="Class type">
+        ${filters.map(([v, label]) => `<a href="#/condo/${esc(id)}${v ? `?type=${v}` : ''}" class="pill${type === v ? ' active' : ''}"${type === v ? ' aria-current="true"' : ''}>${label}</a>`).join('')}
+      </div>
     </div>
-    ${classes.length ? classes.map((k) => classCard(k)).join('') : '<p class="muted">No classes running in this condo yet.</p>'}
+    ${classes.length
+      ? `<div class="class-grid">${classes.map((k) => classCard(k)).join('')}</div>`
+      : `<div class="empty-state">
+          <span class="empty-icon">${icon('wave')}</span>
+          <h3>No classes here yet</h3>
+          <p class="muted">Be the first: request a class for this condo and we will set it up.</p>
+          <a href="#/new-class/${esc(id)}"><button type="button">Add a class</button></a>
+        </div>`}
     `;
-  $('#type').onchange = (e) => {
-    location.hash = `#/condo/${id}${e.target.value ? `?type=${e.target.value}` : ''}`;
-  };
   if (can_chat) startChat(id);
 }
 
@@ -457,11 +596,17 @@ function getChatState() {
   try {
     const saved = localStorage.getItem(CHAT_STATE_KEY);
     if (saved === 'open' || saved === 'min') return saved;
-  } catch (_) { /* storage blocked: use the default */ }
+  } catch (err) {
+    console.warn('[chat] could not read the saved chat state, using the default:', err.message);
+  }
   return isMobile() ? 'min' : 'open';
 }
 function saveChatState(value) {
-  try { localStorage.setItem(CHAT_STATE_KEY, value); } catch (_) { /* storage blocked: nothing to save */ }
+  try {
+    localStorage.setItem(CHAT_STATE_KEY, value);
+  } catch (err) {
+    console.warn('[chat] could not remember the chat state:', err.message);
+  }
 }
 
 // Condo chat: refreshes every 5 seconds (simple polling, no extra server needed)
@@ -470,7 +615,7 @@ function startChat(condoId) {
   document.body.insertAdjacentHTML('beforeend', `
     <div class="chat-widget" id="chatWidget">
       <div class="chat-head">
-        <div class="chat-avatar">🐙</div>
+        <div class="chat-avatar">${LOGO}</div>
         <div class="spacer">
           <strong>Condo chat</strong>
           <div class="chat-sub">Messages are kept for <span id="retDays">…</span> days</div>
@@ -502,19 +647,32 @@ function startChat(condoId) {
     saveChatState(nowCollapsed ? 'min' : 'open');
   };
 
+  // First load gets the latest messages; every poll after that asks only for messages newer than the
+  // last one shown and appends them (no full redraw). seen guards against the same message twice.
+  let lastAt = null;
+  const seen = new Set();
   const load = async () => {
     try {
-      const { messages, retention_days } = await api(`/condos/${encodeURIComponent(condoId)}/chat`);
+      const after = lastAt ? `?after=${encodeURIComponent(lastAt)}` : '';
+      const { messages, retention_days } = await api(`/condos/${encodeURIComponent(condoId)}/chat${after}`);
       const retEl = $('#retDays');
-      if (retEl) retEl.textContent = retention_days;
+      if (retEl && retention_days) retEl.textContent = retention_days;
       const list = $('#chatList');
       if (!list) return;
+      const fresh = messages.filter((m) => !seen.has(m.id));
+      fresh.forEach((m) => seen.add(m.id));
+      if (messages.length) lastAt = messages[messages.length - 1].created_at;
       const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 60;
       const first = !list.dataset.ready;
-      list.innerHTML = messages.length
-        ? messages.map(chatItem).join('')
-        : '<p class="chat-empty">No messages yet. Say hi 👋</p>';
-      if (first || nearBottom) list.scrollTop = list.scrollHeight;
+      if (first) {
+        list.innerHTML = fresh.length
+          ? fresh.map(chatItem).join('')
+          : '<p class="chat-empty">No messages yet. Say hi 👋</p>';
+      } else if (fresh.length) {
+        list.querySelector('.chat-empty')?.remove();
+        list.insertAdjacentHTML('beforeend', fresh.map(chatItem).join(''));
+      }
+      if (first || (fresh.length && nearBottom)) list.scrollTop = list.scrollHeight;
       list.dataset.ready = '1';
     } catch (err) {
       const e = $('#chatErr');
@@ -538,7 +696,7 @@ function startChat(condoId) {
   };
 
   load();
-  state.timers.push(setInterval(load, 5000));
+  poll(load, 5000);
 }
 
 // One message bubble. My messages go on the right (green), others on the left (white)
@@ -632,24 +790,30 @@ function rsvpSummary(yes, no, enrolled) {
 
 function classCard(k) {
   const full = k.enrolled >= k.capacity;
+  const left = k.capacity - k.enrolled;
+  const isPrivate = k.class_type === 'one_to_one';
+  // A private class is for 1 person; a group class is charged at the 4-person price (see pricing.js)
+  const price = k.prices ? (isPrivate ? k.prices['1'] : k.prices['4-6']) : k.price_cents;
   return `
-    <div class="card">
-      <div class="row"><h3 class="spacer" style="margin:0">${esc(groupName(k.upcoming_times, k.name, k.class_type))}</h3>
-        ${full ? '<span class="badge full">FULL</span>' : `<span class="badge ok">${k.capacity - k.enrolled} ${k.capacity - k.enrolled === 1 ? 'seat' : 'seats'} left</span>`}</div>
+    <article class="card offer-card">
+      <div class="offer-top">
+        <span class="type-chip ${isPrivate ? 'private' : 'group'}">${icon(isPrivate ? 'user' : 'users')}${isPrivate ? 'Private 1:1' : 'Group'}</span>
+        ${full ? '<span class="badge full">Full</span>' : `<span class="badge ok">${left} ${left === 1 ? 'seat' : 'seats'} left</span>`}
+      </div>
+      <h3>${esc(groupName(k.upcoming_times, k.name, k.class_type))}</h3>
       ${statusBadge(k)}
-      <div class="muted">Coach: ${esc(k.coach_name || 'To be assigned')} · ${k.class_type === 'one_to_one' ? 'Private One to One' : 'Group'} · ${k.duration_min} min</div>
-      <div><span class="badge">${esc(k.skill_level)}</span><span class="badge">Age ${k.min_age}–${k.max_age}</span>${k.classes_per_month ? `<span class="badge">${k.classes_per_month === 8 ? 'Twice a week' : 'Once a week'} · ${k.classes_per_month} classes/month</span>` : ''}</div>
-      ${k.schedule_text ? `<div class="muted">Schedule: ${esc(k.schedule_text)}</div>` : ''}
-      <div class="muted">Class days: ${esc(dayLabels(k.upcoming_times)) || 'No upcoming sessions'}</div>
-      ${k.prices
-        // A private class is for 1 person; a group class is charged at the 4-person price (see pricing.js)
-        ? `<div class="muted">Package price: <strong>${rm(k.class_type === 'one_to_one' ? k.prices['1'] : k.prices['4-6'])}</strong> per person${k.class_type === 'one_to_one' ? ' (private)' : ''}</div>`
-        : `<div><span class="badge">${rm(k.price_cents)} per person</span></div>`}
-      <div class="muted">Next class: ${k.next_session_at ? esc(fmtTime(k.next_session_at)) + ' (Malaysia time)' : 'No session scheduled'}</div>
-      <div class="row" style="margin-top:8px">
+      <div class="offer-tags"><span class="badge level">${esc(k.skill_level)}</span><span class="badge">Age ${k.min_age}–${k.max_age}</span>${k.classes_per_month ? `<span class="badge">${k.classes_per_month === 8 ? 'Twice a week' : 'Once a week'}</span>` : ''}</div>
+      <ul class="offer-facts">
+        <li>${icon('whistle')}<span>Coach <strong>${esc(k.coach_name || 'to be assigned')}</strong></span></li>
+        <li>${icon('calendar')}<span>${esc(dayLabels(k.upcoming_times)) || 'No upcoming sessions'}${k.schedule_text ? ` · ${esc(k.schedule_text)}` : ''}</span></li>
+        <li>${icon('clock')}<span>${k.duration_min} min${k.classes_per_month ? ` · ${k.classes_per_month} classes/month` : ''}</span></li>
+        <li>${icon('arrow')}<span>Next: ${k.next_session_at ? `<strong>${esc(fmtTime(k.next_session_at))}</strong>` : 'No session scheduled'}</span></li>
+      </ul>
+      <div class="offer-foot">
+        <div class="offer-price"><strong>${rm(price)}</strong><span>${k.prices ? 'package · per person' : 'per person'}</span></div>
         ${full ? '<button disabled>Class full</button>' : `<a href="#/join/${esc(k.id)}"><button type="button">Join class</button></a>`}
       </div>
-    </div>`;
+    </article>`;
 }
 
 // ---------- package price box on the add-class forms ----------
@@ -799,7 +963,7 @@ async function join(classId, params = new URLSearchParams()) {
   const memberOptions = members.map((m) => `<option value="${esc(m.id)}">${esc(m.full_name)} (${m.age}, ${esc(m.skill_level)})</option>`).join('');
   const row = (i) => `
     <div class="participant" data-i="${i}">
-      <div class="row"><strong class="spacer">Person ${i + 1}</strong></div>
+      <div class="participant-head"><span class="avatar" aria-hidden="true">${i + 1}</span><strong>Person ${i + 1}</strong></div>
       ${members.length ? `<div class="field"><label for="p${i}-member">From family</label><select id="p${i}-member" data-field="member"><option value="">— type manually —</option>${memberOptions}</select></div>` : ''}
       <div class="field"><label for="p${i}-name">Name</label><input id="p${i}-name" name="p${i}-name" type="text" data-field="name" required maxlength="80"></div>
       <div class="row">
@@ -809,15 +973,36 @@ async function join(classId, params = new URLSearchParams()) {
     </div>`;
 
   $('#app').innerHTML = `
-    <h1>Join class</h1>
-    <div class="form-card" style="max-width:640px;margin-left:0">
-      <div class="row"><label for="count" style="margin:0">How many people are joining?</label>
-        <select id="count" class="inline-input" style="max-width:120px">${[...Array(10)].map((_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}</select></div>
-      <div class="field" style="margin-top:12px"><label for="unit">Unit number (for coach registration at the condo gate as visitors)</label>
-        <input id="unit" maxlength="20" required></div>
-      <div id="people" style="margin-top:12px"></div>
-      <button id="check" type="button">Check eligibility</button>
-      <div id="result" style="margin-top:14px"></div>
+    <p class="crumbs"><a href="#/">Condos</a><span>/</span>Join a class</p>
+    <div class="page-head">
+      <span class="page-icon">${icon('wave')}</span>
+      <div><h1>Join a class</h1><p class="muted">Tell us who is swimming. We check the class rules, then you join.</p></div>
+    </div>
+    ${invite ? `<div class="invite-note">${icon('gift')}<span>You are joining with a friend's invite link.</span></div>` : ''}
+    <div class="join-grid">
+      <div class="panel join-form">
+        <div class="join-step"><span class="step-no">1</span><h3>Who is joining?</h3></div>
+        <div class="row join-top">
+          <div class="field"><label for="count">Number of people</label>
+            <select id="count">${[...Array(10)].map((_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}</select></div>
+          <div class="field" style="flex:1"><label for="unit">Unit number</label>
+            <input id="unit" maxlength="20" required placeholder="e.g. A-12-3"></div>
+        </div>
+        <p class="muted small" style="margin:-4px 0 14px">The unit number lets the coach register as your visitor at the condo gate.</p>
+        <div id="people"></div>
+        <div class="join-step"><span class="step-no">2</span><h3>Check and join</h3></div>
+        <button id="check" type="button" class="block">Check eligibility</button>
+        <div id="result"></div>
+      </div>
+      <aside class="panel join-help">
+        <div class="panel-head"><span class="panel-icon">${icon('check')}</span><div><h3>How joining works</h3><p class="muted">Takes about a minute.</p></div></div>
+        <ul class="offer-facts">
+          <li>${icon('users')}<span>Add each person who will swim. Family members you saved can be picked from a list.</span></li>
+          <li>${icon('shield')}<span>We check age and swimming level against the class rules.</span></li>
+          <li>${icon('calendar')}<span>Group classes start once enough people join. You will see the status on your profile.</span></li>
+          <li>${icon('qr')}<span>At the pool, check in by scanning your coach's QR code.</span></li>
+        </ul>
+      </aside>
     </div>`;
 
   const people = $('#people');
@@ -852,36 +1037,48 @@ async function join(classId, params = new URLSearchParams()) {
     if (!unit) return toast('Please enter your unit number');
     const participants = collect();
     const out = $('#result');
-    out.textContent = 'Checking...';
+    out.innerHTML = '<p class="muted" style="margin-top:12px">Checking...</p>';
     try {
       const r = await api(`/classes/${classId}/eligibility`, { body: { participants } });
       if (r.full) {
-        out.innerHTML = r.seats_left > 0
+        out.innerHTML = `<div class="result-box bad">${r.seats_left > 0
           ? `<p class="error">Only ${r.seats_left} seat${r.seats_left === 1 ? '' : 's'} left in this class. Choose fewer people.</p>`
-          : '<p class="error">Sorry, this class is full.</p>';
+          : '<p class="error">Sorry, this class is full.</p>'}</div>`;
         return;
       }
-      const list = r.participants.map((p) => `<li>${esc(p.name)}: ${p.eligible
+      const list = r.participants.map((p) => `<li><strong>${esc(p.name)}</strong> ${p.eligible
         ? '<span class="badge ok">Eligible</span>'
-        : `<span class="badge full">Not eligible</span> ${esc(p.reason)}`}</li>`).join('');
+        : `<span class="badge full">Not eligible</span> <span class="muted">${esc(p.reason)}</span>`}</li>`).join('');
       if (r.eligible) {
         out.innerHTML = `
-          <ul>${list}</ul>
-          <p>Total: <strong>${rm(r.price_cents)}</strong> (${rm(r.price_per_person_cents)} per person)</p>
-          <button id="pay" type="button">Pay and join</button>
-          <p class="muted">Payment is processed securely.</p>
-          <p data-msg class="error"></p>`;
-        $('#pay').onclick = () => enroll(classId, participants, unit, invite);
+          <div class="result-box">
+            <div class="label">${esc(r.class_name)}</div>
+            <ul class="result-list">${list}</ul>
+            <div class="offer-foot">
+              <div class="offer-price"><strong>${rm(r.price_cents)}</strong><span>total · ${rm(r.price_per_person_cents)} per person</span></div>
+              <button id="pay" type="button">Join class</button>
+            </div>
+            <p class="muted small" style="margin:10px 0 0">Online payment is not connected yet. After you join, the academy will contact you to arrange payment.</p>
+            <p data-msg class="error"></p>
+          </div>`;
+        $('#pay').onclick = async (e) => {
+          e.target.disabled = true;
+          e.target.textContent = 'Joining...';
+          const ok = await enroll(classId, participants, unit, invite);
+          if (!ok) { e.target.disabled = false; e.target.textContent = 'Join class'; }
+        };
       } else {
         out.innerHTML = `
-          <ul>${list}</ul>
+          <div class="result-box bad">
+          <ul class="result-list">${list}</ul>
           <p>You are not eligible for this class. Create a class for your group instead:</p>
           <form id="req">
             <div class="field"><label for="days">How often?</label>
               <select id="days" name="days"><option value="once_a_week">Once a week</option><option value="twice_a_week">Twice a week</option></select></div>
             <button type="submit">Create class</button>
             <p data-msg class="error"></p>
-          </form>`;
+          </form>
+          </div>`;
         const condoId = r.condo_id;
         bindForm('#req', async (form) => {
           const res = await api('/class-requests', { body: { condo_id: condoId, participants, unit_number: unit, days: form.days } });
@@ -889,7 +1086,7 @@ async function join(classId, params = new URLSearchParams()) {
         });
       }
     } catch (err) {
-      out.innerHTML = `<p class="error">${esc(err.message)}</p>`;
+      out.innerHTML = `<div class="result-box bad"><p class="error">${esc(err.message)}</p></div>`;
     }
   };
 }
@@ -903,7 +1100,10 @@ function pendingInviteSet(code) {
   try {
     if (code) localStorage.setItem(PENDING_INVITE_KEY, code);
     else localStorage.removeItem(PENDING_INVITE_KEY);
-  } catch (_) { /* private mode: the link just has to be opened again after login */ }
+  } catch (err) {
+    // Private mode: the invite link just has to be opened again after login
+    console.warn('[invite] could not remember the invite link:', err.message);
+  }
 }
 
 // Friend's invite landing page: shows the class and whether this account can accept it
@@ -948,9 +1148,12 @@ async function enroll(classId, participants, unit, invite = null) {
     const r = await api(`/classes/${classId}/enroll`, { body: { participants, unit_number: unit, ...(invite ? { invite } : {}) } });
     toast(r.message);
     location.hash = '#/me';
+    return true;
   } catch (err) {
-    const msg = document.querySelector('[data-msg]');
+    const msg = document.querySelector('#result [data-msg]');
     if (msg) msg.textContent = err.message;
+    else toast(err.message);
+    return false;
   }
 }
 
@@ -967,35 +1170,50 @@ async function me() {
   const payNotice = unpaid.length
     ? `<div class="pay-notice">${unpaid.map((s) => `<p><strong>${esc(s.class_name)}</strong>: the class is complete. Please pay to start the first class.</p>`).join('')}</div>`
     : '';
+  const classCount = new Set(sessions.map((s) => s.enrollment_id)).size;
   $('#app').innerHTML = `
-    <h1>Hi, ${esc(user.username)}</h1>
+    ${profileHero(user, [['stClasses', classCount, classCount === 1 ? 'Class' : 'Classes'], ['stFamily', members.length, 'Family'], ['stFree', '–', 'Free months']])}
     ${payNotice}
-
-    <h2>My classes</h2>
-    <div id="classes"></div>
-    <h2>Friends I invited</h2>
-    <div id="referrals"></div>
-
-    <h2>Family members</h2>
-    <p class="muted">Manage everyone who joins under your email.</p>
-    <div id="family"></div>
-    <form id="addFamily" class="card">
-      <div class="row">
-        <input name="full_name" class="inline-input" placeholder="Full name" required maxlength="80">
-        <input name="date_of_birth" class="inline-input" type="date" max="${todayISO()}" required style="max-width:170px">
-        <select name="skill_level" class="inline-input" style="max-width:200px">${levelOptions()}</select>
+    <div class="profile-grid">
+      <div class="profile-main">
+        <div class="section-head">
+          <div><span class="eyebrow">Schedule</span><h2>My classes</h2></div>
+          <a href="#/" class="link-btn">Find a class ${icon('arrow')}</a>
+        </div>
+        <div id="classes"></div>
       </div>
-      <p data-msg class="error"></p>
-      <button type="submit">Add family member</button>
-    </form>`;
+      <aside class="profile-side">
+        <div class="panel">
+          <div class="panel-head"><span class="panel-icon">${icon('users')}</span><div><h3>Family members</h3><p class="muted">Everyone who joins under your account.</p></div></div>
+          <div id="family"></div>
+          <details class="add-member"${members.length ? '' : ' open'}>
+            <summary>+ Add family member</summary>
+            <form id="addFamily">
+              <div class="field"><label for="fmName">Full name</label><input id="fmName" name="full_name" required maxlength="80"></div>
+              <div class="row">
+                <div class="field" style="flex:1"><label for="fmDob">Date of birth</label><input id="fmDob" name="date_of_birth" type="date" max="${todayISO()}" required></div>
+                <div class="field" style="flex:1"><label for="fmLevel">Level</label><select id="fmLevel" name="skill_level">${levelOptions()}</select></div>
+              </div>
+              <p data-msg class="error"></p>
+              <button type="submit" class="block">Add family member</button>
+            </form>
+          </details>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><span class="panel-icon coral">${icon('gift')}</span><div><h3>Invite rewards</h3><p class="muted">Friends who joined with your link.</p></div></div>
+          <div id="referrals"></div>
+        </div>
+      </aside>
+    </div>`;
 
   $('#family').innerHTML = members.length
-    ? members.map((m) => `
-        <div class="card row">
-          <span class="spacer">${esc(m.full_name)} · ${m.age} · ${esc(m.skill_level)}</span>
-          <button class="danger" data-remove="${esc(m.id)}" type="button">Remove</button>
-        </div>`).join('')
-    : '<p class="muted">No family members yet.</p>';
+    ? `<div class="member-list">${members.map((m) => `
+        <div class="member">
+          <span class="avatar" aria-hidden="true">${esc(initials(m.full_name))}</span>
+          <div class="spacer"><strong>${esc(m.full_name)}</strong><div class="muted">${m.age} years · <span class="level">${esc(m.skill_level)}</span></div></div>
+          <button class="icon-btn" data-remove="${esc(m.id)}" type="button" aria-label="Remove ${esc(m.full_name)}" title="Remove">${icon('trash')}</button>
+        </div>`).join('')}</div>`
+    : '<p class="muted empty-note">No family members yet.</p>';
   document.querySelectorAll('[data-remove]').forEach((b) => (b.onclick = async () => {
     if (!confirm('Remove this family member?')) return;
     await api(`/me/family/${b.dataset.remove}`, { method: 'DELETE' });
@@ -1009,13 +1227,18 @@ async function me() {
 
   renderMySessions(sessions);
   loadReferrals();
-  // Countdown ticks every second; the list is re-fetched every 30 s so the check-in button appears on time
-  const tick = setInterval(() => updateCountdowns(), 1000);
-  const refresh = setInterval(async () => {
-    const { sessions: s } = await api('/me/classes').catch(() => ({ sessions: [] }));
-    renderMySessions(s);
+  // Countdown refreshes once a minute; the list is re-fetched every 30 s so the check-in button appears on time.
+  // Both pause while the tab is hidden and catch up as soon as it is shown again.
+  poll(updateCountdowns, COUNTDOWN_EVERY_MS);
+  poll(async () => {
+    // Someone is typing in the class list (e.g. a reason for not attending): skip this refresh,
+    // redrawing now would wipe what they are writing. The next refresh catches up.
+    const active = document.activeElement;
+    if (active && active.closest && active.closest('#classes') && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return;
+    // A failed refresh keeps the list on screen instead of emptying it
+    const res = await api('/me/classes').catch((err) => { console.warn('[classes] refresh failed:', err.message); return null; });
+    if (res) renderMySessions(res.sessions);
   }, 30000);
-  state.timers.push(tick, refresh);
 }
 
 // Friends who joined with my invite link, and the free months earned from them
@@ -1024,13 +1247,21 @@ async function loadReferrals() {
   if (!box) return;
   try {
     const { invited, free_months: freeMonths } = await api('/me/referrals');
+    const stat = $('#stFree');
+    if (stat) stat.textContent = freeMonths;
     box.innerHTML = `
-      <div class="card">
-        <strong>Free months earned: ${freeMonths}</strong>
-        <p class="muted" style="margin:4px 0 0">You get one free month for each class that is confirmed only because of the friends you invited. It is one month per class, not per person.</p>
-        ${invited.length ? `<ul style="margin:8px 0 0">${invited.map((r) => `<li>${esc(r.participant_name)} · ${esc(r.class_name)} · ${r.paid ? '<span class="badge ok">Paid</span>' : '<span class="badge late">Not paid yet</span>'}</li>`).join('')}</ul>`
-          : '<p class="muted" style="margin-bottom:0">No friends have joined with your link yet.</p>'}
-      </div>`;
+      <div class="reward">
+        <strong>${freeMonths}</strong>
+        <span>free month${freeMonths === 1 ? '' : 's'} earned</span>
+      </div>
+      <p class="muted small">One free month for each class that is confirmed only because of the friends you invited (per class, not per person).</p>
+      ${invited.length ? `<div class="member-list">${invited.map((r) => `
+          <div class="member">
+            <span class="avatar" aria-hidden="true">${esc(initials(r.participant_name))}</span>
+            <div class="spacer"><strong>${esc(r.participant_name)}</strong><div class="muted">${esc(r.class_name)}</div></div>
+            ${r.paid ? '<span class="badge ok">Paid</span>' : '<span class="badge late">Not paid yet</span>'}
+          </div>`).join('')}</div>`
+        : '<p class="muted empty-note">No friends have joined with your link yet. Use “Invite a friend” on a group class.</p>'}`;
   } catch (err) {
     box.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
   }
@@ -1043,7 +1274,13 @@ function renderMySessions(sessions) {
   if (!box) return;
   state.lastSessions = sessions; // kept so the reason "Edit" link can redraw without reloading
   if (!sessions.length) {
-    box.innerHTML = '<p class="muted">You have no classes yet. Find your condo on the home page.</p>';
+    box.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">${icon('wave')}</span>
+        <h3>No classes yet</h3>
+        <p class="muted">Find your condo and join a private or group class.</p>
+        <a href="#/"><button type="button">Find your condo</button></a>
+      </div>`;
     return;
   }
   state.expanded = state.expanded || new Set();
@@ -1059,12 +1296,24 @@ function renderMySessions(sessions) {
     const open = state.expanded.has(enrId);
     return `
     <div class="card class-card" data-start="${esc(next.starts_at)}" data-end="${esc(next.ends_at)}">
-      <div class="class-head" data-toggle="${esc(enrId)}" role="button" tabindex="0" aria-expanded="${open}">
-        <div class="row"><strong class="spacer">${esc(next.class_name)}</strong><span class="muted">${open ? '▲' : '▼'}</span></div>
-        <div class="muted">${esc(next.participant_name)} · ${esc(next.condo_name)} · Coach ${esc(next.coach_name || 'TBA')}</div>
-        <div class="muted">Next class: ${esc(fmtTime(next.starts_at))} (Malaysia time)</div>
+      <div class="class-head" data-toggle="${esc(enrId)}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Hide all dates' : 'Show all dates'}">
+        <div class="class-top">
+          <span class="class-icon">${icon('wave')}</span>
+          <div class="spacer">
+            <h3>${esc(next.class_name)}</h3>
+            <div class="class-meta">
+              <span>${icon('user')}${esc(next.participant_name)}</span>
+              <span>${icon('pin')}${esc(next.condo_name)}</span>
+              <span>${icon('whistle')}Coach ${esc(next.coach_name || 'TBA')}</span>
+            </div>
+          </div>
+          <span class="chev${open ? ' up' : ''}">${icon('chev')}</span>
+        </div>
       </div>
-      <div class="countdown-slot" style="margin-top:6px"></div>
+      <div class="next-box">
+        <div class="next-when"><span class="label">Next class</span><strong>${esc(fmtTime(next.starts_at))}</strong><span class="muted small">Malaysia time</span></div>
+        <div class="countdown-slot"></div>
+      </div>
       ${rsvpRow(next)}
       ${next.class_type === 'group' && next.enrollment_id ? `
         <div class="row" style="margin-top:8px">
@@ -1075,23 +1324,41 @@ function renderMySessions(sessions) {
     </div>`;
   }).join('');
 
-  box.querySelectorAll('[data-invite]').forEach((b) => (b.onclick = async () => {
+  // Invite links already shown stay open when the list is redrawn (the 30 s refresh used to wipe them)
+  state.inviteLinks = state.inviteLinks || new Map();
+  const showInvite = (slot, link) => {
+    slot.innerHTML = `
+      <div class="row" style="width:100%">
+        <input readonly value="${esc(link)}" class="inline-input" aria-label="Invite link">
+        <button type="button" class="secondary" data-copy>Copy link</button>
+      </div>
+      <p class="muted" style="margin:4px 0 0">Send this link to a friend who is new to the academy. They can join the class with it.</p>`;
+    const input = slot.querySelector('input');
+    input.onclick = () => input.select();
+    slot.querySelector('[data-copy]').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(link);
+        toast('Link copied');
+      } catch (err) {
+        console.warn('[invite] clipboard not available:', err.message);
+        input.select();
+        toast('Copy the link from the box');
+      }
+    };
+  };
+  box.querySelectorAll('[data-invite]').forEach((b) => {
     const slot = b.parentElement.querySelector('.invite-slot');
-    try {
-      const { link } = await api(`/me/enrollments/${b.dataset.invite}/invite`, { method: 'POST', body: {} });
-      slot.innerHTML = `
-        <div class="row" style="width:100%">
-          <input readonly value="${esc(link)}" class="inline-input" onclick="this.select()">
-          <button type="button" class="secondary" data-copy>Copy link</button>
-        </div>
-        <p class="muted" style="margin:4px 0 0">Send this link to a friend who is new to the academy. They can join the class with it.</p>`;
-      slot.querySelector('[data-copy]').onclick = async () => {
-        try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (_) { toast('Copy the link from the box'); }
-      };
-    } catch (err) {
-      toast(err.message);
-    }
-  }));
+    if (state.inviteLinks.has(b.dataset.invite)) showInvite(slot, state.inviteLinks.get(b.dataset.invite));
+    b.onclick = async () => {
+      try {
+        const { link } = await api(`/me/enrollments/${b.dataset.invite}/invite`, { method: 'POST', body: {} });
+        state.inviteLinks.set(b.dataset.invite, link);
+        showInvite(slot, link);
+      } catch (err) {
+        toast(err.message);
+      }
+    };
+  });
 
   box.querySelectorAll('[data-rsvp]').forEach((b) => (b.onclick = async () => {
     // A new Yes/No answer starts the reason part fresh (No shows the box again unless a reason is saved)
@@ -1187,7 +1454,7 @@ function updateCountdowns() {
     const slot = card.querySelector('.countdown-slot');
     const windowOpen = start - 30 * 60000;
     if (now < windowOpen) {
-      slot.innerHTML = `Starts in <span class="countdown">${formatRemaining(start - now)}</span>`;
+      slot.innerHTML = `<span class="label">Starts in</span><span class="countdown">${formatRemaining(start - now)}</span>`;
     } else if (now <= end) {
       slot.innerHTML = `<a href="#/checkin"><button type="button">Scan coach QR code</button></a>`;
     } else {
@@ -1196,14 +1463,17 @@ function updateCountdowns() {
   });
 }
 
+// The countdown is only a reminder, so it shows days/hours (minutes in the last hours), no seconds:
+// "4d 17h", "5h 20m", "45 min". It is refreshed once a minute.
+const COUNTDOWN_EVERY_MS = 60 * 1000;
 function formatRemaining(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(total / 86400);
-  const h = Math.floor((total % 86400) / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const pad = (n) => String(n).padStart(2, '0');
-  return d ? `${d}d ${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(h)}:${pad(m)}:${pad(s)}`;
+  const totalMin = Math.max(0, Math.ceil(ms / 60000));
+  const d = Math.floor(totalMin / 1440);
+  const h = Math.floor((totalMin % 1440) / 60);
+  const m = totalMin % 60;
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  return `${m} min`;
 }
 
 // ---------- check-in (student scans the coach QR) ----------
@@ -1273,10 +1543,12 @@ async function submitCheckin(token) {
 async function coach() {
   clearTimers();
   const { sessions } = await api('/coach/sessions');
+  const upcoming = sessions.filter((s) => new Date(s.ends_at).getTime() > Date.now()).length;
+  const classTotal = new Set(sessions.map((s) => s.class_id)).size;
   $('#app').innerHTML = `
-    <h1>${state.user.role === 'coach' ? `Hi, ${esc(state.user.username)}` : 'Coach panel'}</h1>
-    <h2>My classes</h2>
-    <div class="card" id="nextClass"></div>
+    ${profileHero(state.user, [['stClasses', classTotal, classTotal === 1 ? 'Class' : 'Classes'], ['stUpcoming', upcoming, 'Upcoming']])}
+    <div class="section-head"><div><span class="eyebrow">Teaching</span><h2>My classes</h2></div></div>
+    <div class="card next-card" id="nextClass"></div>
     <div id="sessionList"></div>
     <div id="panel"></div>`;
 
@@ -1338,7 +1610,7 @@ async function coach() {
   drawSessions();
 
   renderNextClass(sessions);
-  state.timers.push(setInterval(() => renderNextClass(sessions), 1000));
+  poll(() => renderNextClass(sessions), COUNTDOWN_EVERY_MS);
 }
 
 // Countdown to the first class that has not ended yet (or "in progress" while it runs)
@@ -1353,11 +1625,14 @@ function renderNextClass(sessions) {
   }
   const start = new Date(next.starts_at).getTime();
   box.innerHTML = now < start
-    ? `<div class="muted">Next class: ${esc(next.class_name)} · ${esc(next.condo_name)}</div>
-       <div class="muted">${esc(fmtTime(next.starts_at))} (Malaysia time)</div>
-       <div style="font-size:28px;margin-top:6px">Starts in <span class="countdown">${formatRemaining(start - now)}</span></div>`
-    : `<div class="muted">In progress: ${esc(next.class_name)} · ${esc(next.condo_name)}</div>
-       <div class="badge ok">Class is running</div>`;
+    ? `<div class="next-box">
+         <div class="next-when"><span class="label">Next class · ${esc(next.class_name)}</span><strong>${esc(fmtTime(next.starts_at))}</strong><span class="muted small">${esc(next.condo_name)} · Malaysia time</span></div>
+         <div class="countdown-slot"><span class="label">Starts in</span><span class="countdown">${formatRemaining(start - now)}</span></div>
+       </div>`
+    : `<div class="next-box">
+         <div class="next-when"><span class="label">In progress</span><strong>${esc(next.class_name)}</strong><span class="muted small">${esc(next.condo_name)}</span></div>
+         <span class="badge ok">Class is running</span>
+       </div>`;
 }
 
 async function showQr(sessionId) {
@@ -1408,14 +1683,19 @@ async function showRoster(sessionId) {
       </div>
     </div>`;
 
+  // The panel's own message line: cleared before each save so an old error never sits next to a success
+  const panelMsg = $('#panel [data-msg]');
+  const showMsg = (text) => { if (panelMsg) panelMsg.textContent = text; };
+
   $('#saveAtt').onclick = async () => {
+    showMsg('');
     const rows = [...document.querySelectorAll('tr[data-enr]')].filter((tr) => tr.querySelector('[data-att]').value);
     try {
       for (const tr of rows) {
         await api(`/coach/sessions/${sessionId}/attendance`, { body: { enrollment_id: tr.dataset.enr, status: tr.querySelector('[data-att]').value } });
       }
       toast('Attendance saved');
-    } catch (err) { $('[data-msg]').textContent = err.message; }
+    } catch (err) { showMsg(err.message); }
   };
 
   $('#saveRate').onclick = async () => {
@@ -1426,11 +1706,12 @@ async function showRoster(sessionId) {
         stars: Number(tr.querySelector('[data-stars]').value),
         reason: tr.querySelector('[data-reason]').value.trim(),
       }));
+    showMsg('');
     if (!ratings.length) return toast('Choose stars for at least one student');
     try {
       await api(`/coach/sessions/${sessionId}/ratings`, { body: { ratings } });
       toast('Ratings saved');
-    } catch (err) { $('[data-msg]').textContent = err.message; }
+    } catch (err) { showMsg(err.message); }
   };
 }
 

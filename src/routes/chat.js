@@ -7,20 +7,38 @@ const { getNumber, setNumber } = require('../services/settings');
 
 const router = express.Router();
 
-// Latest messages of a condo (newest 200, returned oldest first)
+// Messages of a condo, oldest first.
+// - First load (no ?after): the newest 200 messages + the retention setting.
+// - Polling (?after=<created_at of the last message the browser has>): only messages newer than that.
+//   The browser asks every few seconds, so this keeps each poll to one small indexed read.
+// Expired messages are deleted by the hourly purge in server.js; until then they are filtered out here.
 router.get('/condos/:id/chat', requireAuth, async (req, res) => {
   if (!(await canUseCondoChat(req.user, req.params.id))) {
     return res.status(403).json({ error: 'The chat is for people who joined or requested a class in this condo' });
   }
-  await purgeOldMessages();
+  const days = await getRetentionDays();
+  const after = req.query.after ? new Date(String(req.query.after)) : null;
+  if (after && !Number.isNaN(after.getTime())) {
+    // created_at has microseconds but the browser only knows milliseconds, so the last message
+    // can come back once more; the browser skips ids it already shows.
+    const { rows } = await query(
+      `SELECT m.id, m.body, m.created_at, m.user_id, u.username, u.role
+       FROM condo_messages m LEFT JOIN users u ON u.id = m.user_id
+       WHERE m.condo_id = $1 AND m.created_at >= $2
+         AND m.created_at > now() - make_interval(days => $3::int)
+       ORDER BY m.created_at ASC LIMIT 200`,
+      [req.params.id, after, days]
+    );
+    return res.json({ messages: rows });
+  }
   const { rows } = await query(
     `SELECT m.id, m.body, m.created_at, m.user_id, u.username, u.role
      FROM condo_messages m LEFT JOIN users u ON u.id = m.user_id
-     WHERE m.condo_id = $1
+     WHERE m.condo_id = $1 AND m.created_at > now() - make_interval(days => $2::int)
      ORDER BY m.created_at DESC LIMIT 200`,
-    [req.params.id]
+    [req.params.id, days]
   );
-  res.json({ messages: rows.reverse(), retention_days: await getRetentionDays() });
+  res.json({ messages: rows.reverse(), retention_days: days });
 });
 
 router.post('/condos/:id/chat', requireAuth, async (req, res) => {

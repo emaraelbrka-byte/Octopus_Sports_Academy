@@ -5,7 +5,8 @@ async function getRetentionDays() {
   return Number(rows[0] && rows[0].value) || 15;
 }
 
-// Deletes messages older than the retention period. Runs on every chat read and once an hour.
+// Deletes messages older than the retention period. Runs once an hour (server.js) and when the admin
+// changes the retention. Chat reads do not delete: they only hide expired messages.
 async function purgeOldMessages() {
   const days = await getRetentionDays();
   const { rowCount } = await query(

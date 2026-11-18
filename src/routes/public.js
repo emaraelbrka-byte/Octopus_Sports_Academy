@@ -11,6 +11,7 @@ const { canUseCondoChat } = require('../services/chat');
 const { getNumber } = require('../services/settings');
 const { checkProposalLimit } = require('../services/proposals');
 const { refreshClassStatus } = require('../services/classStatus');
+const { publicBaseUrl } = require('../services/url');
 
 const router = express.Router();
 
@@ -117,8 +118,9 @@ router.post('/classes/:id/enroll', requireAuth, async (req, res) => {
   if (!unit || unit.length > 20) return res.status(400).json({ error: 'Unit number is required' });
   const invite = req.body.invite ? String(req.body.invite).trim() : null;
 
-  // Payment (Visa) is not wired yet. In production we refuse rather than enroll people for free.
-  if (config.env === 'production') {
+  // Payment (Visa) is not wired yet. In production we refuse rather than enroll people for free,
+  // unless free enrolment is switched on for a demo (ALLOW_FREE_ENROLLMENT=true in .env).
+  if (config.env === 'production' && !config.allowFreeEnrollment) {
     return res.status(501).json({ error: 'Payment provider is not configured yet' });
   }
 
@@ -166,7 +168,14 @@ router.post('/classes/:id/enroll', requireAuth, async (req, res) => {
       await refreshClassStatus(cls.id, client);
       return out;
     });
-    res.status(201).json({ message: 'You are enrolled', enrollments: enrolled });
+    if (!enrolled.length) {
+      return res.status(409).json({ error: 'Already enrolled: everyone you entered is already in this class' });
+    }
+    const skipped = parsed.data.length - enrolled.length;
+    res.status(201).json({
+      message: skipped ? `You are enrolled (${skipped} person already in this class was skipped)` : 'You are enrolled',
+      enrollments: enrolled,
+    });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     throw err;
@@ -208,7 +217,7 @@ router.post('/me/enrollments/:id/invite', requireAuth, async (req, res) => {
     code = crypto.randomBytes(5).toString('hex');
     await query('UPDATE enrollments SET invite_code = $2 WHERE id = $1', [req.params.id, code]);
   }
-  res.json({ code, link: `${config.appUrl}/#/invite/${code}` });
+  res.json({ code, link: `${publicBaseUrl(req)}/#/invite/${code}` });
 });
 
 // What an invite link offers: the class, and whether this account can accept it
@@ -391,8 +400,10 @@ router.get('/price-plans', async (_req, res) => {
 
 // ---------- Student profile ----------
 
-router.get('/me', requireAuth, async (req, res) => {
-  res.json({ user: req.user });
+// Who is using the site. Visitors (not logged in, or email not verified) get { user: null } with 200,
+// so every page load does not show a red 401 in the browser console. Other /me/* routes still require login.
+router.get('/me', async (req, res) => {
+  res.json({ user: req.user && req.user.email_verified ? req.user : null });
 });
 
 router.get('/me/family', requireAuth, async (req, res) => {

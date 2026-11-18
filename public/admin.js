@@ -14,7 +14,23 @@ const ADMIN_PAGES = [
 ];
 
 // Link back to the dashboard, shown at the top of every admin subpage
-const adminBack = () => '<p class="muted" style="margin-top:0"><a href="#/admin">← Admin dashboard</a></p>';
+const adminBack = () => '<p class="crumbs"><a href="#/admin">Admin</a></p>';
+
+const ADMIN_ICONS = {
+  condos: 'building', classes: 'wave', sessions: 'calendar', requests: 'inbox',
+  users: 'users', prices: 'tag', settings: 'sliders', ratings: 'star',
+};
+
+// Breadcrumb + icon + title + one-line description, shared by every admin subpage
+function adminHeader(slug) {
+  const [, title, desc] = ADMIN_PAGES.find(([s]) => s === slug);
+  return `
+    <p class="crumbs"><a href="#/admin">Admin</a><span>/</span>${esc(title)}</p>
+    <div class="page-head">
+      <span class="page-icon">${icon(ADMIN_ICONS[slug])}</span>
+      <div><h1>${esc(title)}</h1><p class="muted">${esc(desc)}</p></div>
+    </div>`;
+}
 
 // Entry point for every /admin route. section is '' for the dashboard.
 async function admin(section = '') {
@@ -39,19 +55,43 @@ async function admin(section = '') {
 
 async function adminDashboard() {
   const stats = await api('/admin/stats');
+  // [label, value, icon, link] — requests and low ratings are highlighted when they need attention
   const items = [
-    ['Users', stats.users], ['Coaches', stats.coaches], ['Condos', stats.condos],
-    ['Classes', stats.classes], ['Open requests', stats.open_requests], ['Low ratings', stats.low_ratings],
+    ['Users', stats.users, 'users', 'users'], ['Coaches', stats.coaches, 'whistle', 'users'],
+    ['Condos', stats.condos, 'building', 'condos'], ['Classes', stats.classes, 'wave', 'classes'],
+    ['Open requests', stats.open_requests, 'inbox', 'requests', true], ['Low ratings', stats.low_ratings, 'star', 'ratings', true],
   ];
+  const todo = Number(stats.open_requests) + Number(stats.low_ratings);
   $('#app').innerHTML = `
-    <h1>Admin dashboard</h1>
-    <div class="cards">
-      ${items.map(([k, v]) => `<div class="card"><div class="muted">${k}</div><div style="font-size:26px;font-weight:700">${v}</div></div>`).join('')}
+    <section class="profile-hero admin-hero">
+      <div class="profile-id">
+        <span class="avatar lg logo-avatar" aria-hidden="true">${LOGO}</span>
+        <div>
+          <span class="eyebrow">Admin</span>
+          <h1>Academy dashboard</h1>
+          <div class="profile-meta"><span class="role-chip">${icon('shield')} Admin</span><span>${todo ? `${todo} item${todo === 1 ? '' : 's'} need your attention` : 'Everything is up to date'}</span></div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <a href="#/admin/condos"><button type="button">${icon('plus')} Condo</button></a>
+        <a href="#/admin/classes"><button type="button" class="ghost">${icon('plus')} Class</button></a>
+      </div>
+    </section>
+    <div class="stat-grid">
+      ${items.map(([label, value, ic, slug, alert]) => `
+        <a class="stat-tile${alert && Number(value) > 0 ? ' alert' : ''}" href="#/admin/${slug}">
+          <span class="stat-icon">${icon(ic)}</span>
+          <strong>${esc(value)}</strong><span>${label}</span>
+        </a>`).join('')}
     </div>
-    <h2>Manage</h2>
-    <div class="cards">
+    <div class="section-head"><div><span class="eyebrow">Manage</span><h2>Academy tools</h2></div></div>
+    <div class="tool-grid">
       ${ADMIN_PAGES.map(([slug, title, desc]) => `
-        <a class="card" href="#/admin/${slug}" style="color:inherit"><h3>${title}</h3><p class="muted">${desc}</p></a>`).join('')}
+        <a class="card tool-card" href="#/admin/${slug}">
+          <span class="page-icon">${icon(ADMIN_ICONS[slug])}</span>
+          <span class="spacer"><h3>${esc(title)}</h3><span class="muted">${esc(desc)}</span></span>
+          <span class="condo-go">${icon('arrow')}</span>
+        </a>`).join('')}
     </div>`;
 }
 
@@ -131,8 +171,7 @@ async function adminCondos() {
   };
 
   $('#app').innerHTML = `
-    ${adminBack()}
-    <h1>Add - Manage condo</h1>
+    ${adminHeader('condos')}
     <h2>Add a condo</h2>
     <form id="fCondo" class="card">
       ${condoFields()}
@@ -215,8 +254,7 @@ async function adminClasses() {
     <label style="display:flex;gap:8px;align-items:center;color:inherit;margin:4px 0"><input type="checkbox" name="days" value="${code}" style="width:auto"> ${label} <span class="muted">${isAdminWeekend(code) ? '· Weekend' : '· Weekday'}</span></label>`).join('');
 
   $('#app').innerHTML = `
-    ${adminBack()}
-    <h1>Add - Manage class</h1>
+    ${adminHeader('classes')}
     <form id="fClass" class="card">
       <div class="row">
         <div class="field spacer"><label>Condo</label><select name="condo_id" required>${condoOptions}</select></div>
@@ -516,8 +554,7 @@ async function adminSessions() {
       ${list.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}
     </optgroup>`).join('');
   $('#app').innerHTML = `
-    ${adminBack()}
-    <h1>Add sessions</h1>
+    ${adminHeader('sessions')}
     <form id="fSess" class="card">
       <div class="row">
         <div class="field spacer"><label for="sessClass">Class</label>
@@ -544,8 +581,7 @@ async function adminRequests() {
   const [{ requests }, { coaches }] = await Promise.all([api('/admin/class-requests'), api('/admin/coaches')]);
   const requestsById = Object.fromEntries(requests.map((r) => [r.id, r]));
   $('#app').innerHTML = `
-    ${adminBack()}
-    <h1>Class requests</h1>
+    ${adminHeader('requests')}
     <div class="card" style="overflow-x:auto">
       ${requests.length ? `<table class="stack"><thead><tr><th>Date</th><th>Condo</th><th>Contact</th><th>Details</th><th>Status</th></tr></thead><tbody>
         ${requests.map((r) => `<tr>
@@ -643,8 +679,7 @@ function openApprove(r) {
 // ---------- Users ----------
 function adminUsers() {
   $('#app').innerHTML = `
-    ${adminBack()}
-    <h1>Users</h1>
+    ${adminHeader('users')}
     <form id="fUsers" class="row"><input name="q" class="inline-input" placeholder="Search username or email"><button type="submit">Search</button></form>
     <div id="userList" class="card" style="overflow-x:auto;margin-top:8px"></div>`;
   const loadUsers = async (q) => {
@@ -666,8 +701,7 @@ function adminUsers() {
 // ---------- Price list ----------
 async function adminPrices() {
   $('#app').innerHTML = `
-    ${adminBack()}
-    <h1>Price list (RM per person)</h1>
+    ${adminHeader('prices')}
     <form id="fPrices" class="card">
       <div style="overflow-x:auto">
         <table>
@@ -698,14 +732,16 @@ async function adminPrices() {
       const el = form.querySelector(`[name="${p.day_group}|${p.classes_per_month}|${p.group_tier}"]`);
       if (el) el.value = (p.price_cents / 100).toFixed(2);
     }
-  }).catch(() => {});
+  }).catch((err) => {
+    console.error('[admin] could not load the price list:', err);
+    toast(`Could not load the current prices: ${err.message}`);
+  });
 }
 
 // ---------- Chat & request limits ----------
 function adminSettings() {
   $('#app').innerHTML = `
-    ${adminBack()}
-    <h1>Chat & request limits</h1>
+    ${adminHeader('settings')}
     <h2>Condo chat</h2>
     <form id="fChat" class="card row">
       <label for="retention" style="margin:0">Delete messages after (days)</label>
@@ -734,15 +770,17 @@ function adminSettings() {
     $('#retention').value = s.chat_retention_days;
     $('#reqLimit').value = s.class_request_limit;
     $('#reqDays').value = s.class_request_wait_days;
-  }).catch(() => {});
+  }).catch((err) => {
+    console.error('[admin] could not load the settings:', err);
+    toast(`Could not load the current settings: ${err.message}`);
+  });
 }
 
 // ---------- Low ratings ----------
 async function adminRatings() {
   const { ratings } = await api('/admin/ratings?max_stars=2');
   $('#app').innerHTML = `
-    ${adminBack()}
-    <h1>Low ratings (2 stars or less)</h1>
+    ${adminHeader('ratings')}
     <div class="card">
       ${ratings.length ? ratings.map((r) => `<div class="card"><strong>${esc(r.participant_name)}</strong> · ${r.stars} ★ · ${esc(r.class_name)} · coach ${esc(r.coach_name)}<div>${esc(r.reason || '')}</div></div>`).join('') : '<p class="muted">None.</p>'}
     </div>`;

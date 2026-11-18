@@ -6,6 +6,7 @@ const config = require('../config');
 const { query, withTransaction } = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { httpError } = require('./public');
+const { publicBaseUrl } = require('../services/url');
 
 const router = express.Router();
 
@@ -50,7 +51,7 @@ router.post('/coach/sessions/:id/qr', requireAuth, requireRole('coach', 'admin')
     `UPDATE classes SET qr_token = COALESCE(qr_token, $2) WHERE id = $1 RETURNING qr_token`,
     [session.class_id, crypto.randomBytes(16).toString('hex')]
   );
-  const url = `${config.appUrl}/#/checkin?token=${rows[0].qr_token}`;
+  const url = `${publicBaseUrl(req)}/#/checkin?token=${rows[0].qr_token}`;
   const png = await QRCode.toDataURL(url, { margin: 1, width: 320 });
   res.json({ qr_image: png, class_name: session.class_name });
 });
@@ -72,6 +73,16 @@ router.get('/coach/sessions/:id/roster', requireAuth, requireRole('coach', 'admi
   res.json({ session: { id: session.id, starts_at: session.starts_at, class_name: session.class_name }, roster: rows });
 });
 
+// The enrolments must be active students of the session's own class (a coach cannot touch other classes)
+async function assertEnrolledInClass(enrollmentIds, classId) {
+  const unique = [...new Set(enrollmentIds)];
+  const { rows } = await query(
+    "SELECT id FROM enrollments WHERE id = ANY($1::uuid[]) AND class_id = $2 AND status = 'active'",
+    [unique, classId]
+  );
+  if (rows.length !== unique.length) throw httpError(404, 'This student is not in this class');
+}
+
 // Emergency fallback when a student has no phone or the QR cannot be scanned
 router.post('/coach/sessions/:id/attendance', requireAuth, requireRole('coach', 'admin'), async (req, res) => {
   const parsed = z
@@ -82,7 +93,8 @@ router.post('/coach/sessions/:id/attendance', requireAuth, requireRole('coach', 
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid attendance data' });
-  await assertCanManageSession(req.user, req.params.id);
+  const session = await assertCanManageSession(req.user, req.params.id);
+  await assertEnrolledInClass([parsed.data.enrollment_id], session.class_id);
   await query(
     `INSERT INTO attendance (session_id, enrollment_id, status, method, checked_in_at, marked_by, note)
      VALUES ($1, $2, $3, 'manual', CASE WHEN $3 = 'absent' THEN NULL ELSE now() END, $4, $5)
@@ -115,6 +127,7 @@ router.post('/coach/sessions/:id/ratings', requireAuth, requireRole('coach', 'ad
     }
   }
   const session = await assertCanManageSession(req.user, req.params.id);
+  await assertEnrolledInClass(parsed.data.ratings.map((r) => r.enrollment_id), session.class_id);
   await withTransaction(async (client) => {
     for (const r of parsed.data.ratings) {
       await client.query(

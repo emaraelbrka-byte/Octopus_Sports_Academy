@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Octopus Sports Academy">
+  <defs>
+    <linearGradient id="osa-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B2E5C"/>
+      <stop offset="1" stop-color="#071A33"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#osa-bg)"/>
+  <!-- Head -->
+  <path d="M15 33C15 19.5 22.6 10 32 10s17 9.5 17 23a4.25 4.25 0 0 1-8.5 0 4.25 4.25 0 0 1-8.5 0 4.25 4.25 0 0 1-8.5 0 4.25 4.25 0 0 1-8.5 0z" fill="#FF6B57"/>
+  <circle cx="25.5" cy="27" r="3.2" fill="#071A33"/>
+  <circle cx="38.5" cy="27" r="3.2" fill="#071A33"/>
+  <circle cx="26.6" cy="25.9" r="1" fill="#fff"/>
+  <circle cx="39.6" cy="25.9" r="1" fill="#fff"/>
+  <!-- Tentacles that become water -->
+  <path d="M9 43.5q5.75-5 11.5 0t11.5 0 11.5 0 11.5 0" fill="none" stroke="#2EC4E6" stroke-width="4" stroke-linecap="round"/>
+  <path d="M15.5 52.5q4.1-4 8.25 0t8.25 0 8.25 0 8.25 0" fill="none" stroke="#2EC4E6" stroke-width="4" stroke-linecap="round" opacity=".55"/>
+</svg>

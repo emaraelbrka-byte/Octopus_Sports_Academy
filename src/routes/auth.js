@@ -2,11 +2,11 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
-const config = require('../config');
 const { query } = require('../db');
 const { setSessionCookie, clearSessionCookie } = require('../middleware/auth');
 const { createAuthToken, consumeAuthToken } = require('../services/tokens');
 const { sendMail } = require('../services/mailer');
+const { publicBaseUrl } = require('../services/url');
 
 const router = express.Router();
 
@@ -55,9 +55,9 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-async function sendVerifyEmail(user) {
+async function sendVerifyEmail(user, req) {
   const raw = await createAuthToken(user.id, 'verify');
-  const link = `${config.appUrl}/#/verify?token=${raw}`;
+  const link = `${publicBaseUrl(req)}/#/verify?token=${raw}`;
   await sendMail({
     to: user.email,
     subject: 'Verify your Octopus Sports Academy account',
@@ -76,7 +76,7 @@ router.post('/register', authLimiter, async (req, res) => {
        RETURNING id, username, email`,
       [username, email, phone, hash]
     );
-    await sendVerifyEmail(rows[0]);
+    await sendVerifyEmail(rows[0], req);
     res.status(201).json({ message: 'Account created. Check your email to verify it.' });
   } catch (err) {
     if (err.code === '23505') {
@@ -96,7 +96,7 @@ router.post('/verify', async (req, res) => {
 router.post('/resend-verification', authLimiter, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const { rows } = await query('SELECT id, username, email, email_verified FROM users WHERE email = $1', [email]);
-  if (rows[0] && !rows[0].email_verified) await sendVerifyEmail(rows[0]);
+  if (rows[0] && !rows[0].email_verified) await sendVerifyEmail(rows[0], req);
   res.json({ message: 'If that account exists and is not verified, a new email was sent.' });
 });
 
@@ -108,7 +108,7 @@ router.post('/login', loginIpLimiter, loginLimiter, async (req, res) => {
   const isEmail = id.includes('@');
   const key = isEmail ? id.toLowerCase() : normalizePhone(id);
   const { rows } = await query(
-    `SELECT id, username, email, phone, role, email_verified, password_hash FROM users
+    `SELECT id, username, email, phone, role, email_verified, password_hash, session_version FROM users
      WHERE ${isEmail ? 'email' : 'phone'} = $1`,
     [key]
   );
@@ -117,11 +117,13 @@ router.post('/login', loginIpLimiter, loginLimiter, async (req, res) => {
   const ok = user && (await bcrypt.compare(parsed.data.password, user.password_hash));
   if (!ok) return res.status(401).json({ error: 'Wrong email/phone or password' });
   if (!user.email_verified) return res.status(403).json({ error: 'Please verify your email first' });
-  setSessionCookie(res, user.id);
+  setSessionCookie(res, user.id, user.session_version);
   res.json({ user: { id: user.id, username: user.username, role: user.role } });
 });
 
-router.post('/logout', (_req, res) => {
+// Logging out ends every session of this account (all devices, and any copied cookie)
+router.post('/logout', async (req, res) => {
+  if (req.user) await query('UPDATE users SET session_version = session_version + 1 WHERE id = $1', [req.user.id]);
   clearSessionCookie(res);
   res.json({ message: 'Logged out' });
 });
@@ -134,7 +136,7 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
     await sendMail({
       to: rows[0].email,
       subject: 'Reset your password',
-      text: `Hi ${rows[0].username},\n\nSet a new password using this link (valid 1 hour):\n${config.appUrl}/#/reset?token=${raw}\n\nIf you did not ask for this, ignore this email.`,
+      text: `Hi ${rows[0].username},\n\nSet a new password using this link (valid 1 hour):\n${publicBaseUrl(req)}/#/reset?token=${raw}\n\nIf you did not ask for this, ignore this email.`,
     });
   }
   // Same response either way, so this form cannot be used to discover accounts
@@ -149,7 +151,8 @@ router.post('/reset-password', authLimiter, async (req, res) => {
   const userId = await consumeAuthToken(req.body.token, 'reset');
   if (!userId) return res.status(400).json({ error: 'This link is invalid or expired' });
   const hash = await bcrypt.hash(password, 12);
-  await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, userId]);
+  // New password: every session made with the old one is logged out
+  await query('UPDATE users SET password_hash = $1, session_version = session_version + 1 WHERE id = $2', [hash, userId]);
   res.json({ message: 'Password changed. You can log in with the new password.' });
 });
 

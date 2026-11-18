@@ -103,10 +103,19 @@ const classSchema = z.object({
   schedule_text: z.string().trim().max(120).optional().nullable(),
 });
 
+// A group class is confirmed only when class_min_size people have joined, so it needs at least that many seats
+async function groupSizeError(d) {
+  if (d.class_type !== 'group') return null;
+  const min = await getNumber('class_min_size', 4);
+  return d.capacity < min ? `A group class needs at least ${min} seats (it is confirmed when ${min} people join)` : null;
+}
+
 router.post('/admin/classes', ...adminOnly, async (req, res) => {
   const parsed = classSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
   if (parsed.data.min_age > parsed.data.max_age) return res.status(400).json({ error: 'Minimum age cannot be greater than maximum age' });
+  const sizeErr = await groupSizeError(parsed.data);
+  if (sizeErr) return res.status(400).json({ error: sizeErr });
   const d = parsed.data;
   const { rows } = await query(
     `INSERT INTO classes (condo_id, coach_id, name, class_type, skill_level, min_age, max_age, capacity, price_cents, duration_min,
@@ -122,6 +131,9 @@ router.post('/admin/classes', ...adminOnly, async (req, res) => {
 router.put('/admin/classes/:id', ...adminOnly, async (req, res) => {
   const parsed = classSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  if (parsed.data.min_age > parsed.data.max_age) return res.status(400).json({ error: 'Minimum age cannot be greater than maximum age' });
+  const sizeErr = await groupSizeError(parsed.data);
+  if (sizeErr) return res.status(400).json({ error: sizeErr });
   const d = parsed.data;
   const { rows } = await query(
     `UPDATE classes SET condo_id=$2, coach_id=$3, name=$4, class_type=$5, skill_level=$6, min_age=$7,
@@ -201,9 +213,9 @@ router.post('/admin/classes/:id/sessions', ...adminOnly, async (req, res) => {
         .max(200),
     })
     .safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Each session needs starts_at and ends_at' });
+  if (!parsed.success) return res.status(400).json({ error: 'Choose a start and an end time for each session' });
   if (parsed.data.sessions.some((s) => new Date(s.ends_at) <= new Date(s.starts_at))) {
-    return res.status(400).json({ error: 'ends_at must be after starts_at' });
+    return res.status(400).json({ error: 'The end time must be after the start time' });
   }
   if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Class not found' });
   const { rows: found } = await query('SELECT 1 FROM classes WHERE id = $1', [req.params.id]);
@@ -374,7 +386,10 @@ router.post('/admin/class-requests/:id/approve', ...adminOnly, async (req, res) 
   const days = Object.keys(DOW_ORDER).filter((x) => d.days.includes(x)); // Monday first, like the Add class page
   const dayGroup = !days.some(weekend) ? 'weekdays' : days.every(weekend) ? 'weekends' : 'mixed';
   const perMonth = d.per_week === 2 ? 8 : 4;
-  const capacity = isPrivate ? 1 : d.people === 5 ? 6 : d.people; // "5 or more" starts with 6 seats
+  // "5 or more" starts with 6 seats. A smaller group still gets the minimum group size in seats,
+  // otherwise it could never be confirmed (others from the condo can fill the free seats).
+  const minSize = await getNumber('class_min_size', 4);
+  const capacity = isPrivate ? 1 : Math.max(d.people === 5 ? 6 : d.people, minSize);
   const duration = isPrivate ? 60 : 40;
   const level = d.skill_level ? ` - ${d.skill_level[0].toUpperCase()}${d.skill_level.slice(1)}` : '';
   const name = `${days.map((x) => DAY_NAMES[x]).join(' & ')} ${isPrivate ? 'Private One to One' : 'Group'}${level}`;

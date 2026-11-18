@@ -3,7 +3,9 @@
   "short_name": "Octopus",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0a6cff",
-  "icons": []
+  "background_color": "#06142a",
+  "theme_color": "#071a33",
+  "icons": [
+    { "src": "img/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
 }
