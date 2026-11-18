@@ -314,6 +314,46 @@ darkQuery.addEventListener('change', syncThemeButton);
 // Remembers the last auth screen and its card height, so switching Log in <-> Sign up can animate
 const authAnim = { last: null, height: 0 };
 
+// Photo panel shown left of every account screen on desktop
+const authVisual = () => `
+    <aside class="auth-visual" aria-hidden="true">
+      <span class="eyebrow">Octopus Sports Academy</span>
+      <h2>The pool downstairs is your new classroom.</h2>
+      <p>Private and group swimming classes, held right at your condo.</p>
+    </aside>`;
+
+// Account screens without the Log in / Sign up switch (forgot, reset, verify): same look as log in
+function authPage({ title, sub, body }) {
+  return `
+    <div class="auth-split">
+      ${authVisual()}
+      <div class="auth">
+        <img class="auth-logo" src="img/logo.svg" alt="">
+        <h1>${title}</h1>
+        <p class="sub">${sub}</p>
+        <div class="card auth-card"><div class="auth-body fade-in">${body}</div></div>
+      </div>
+    </div>`;
+}
+
+// A big round icon with a title and text: success, problem or "please wait" screens
+function stateBlock(kind, title, text, extra = '') {
+  const ic = { ok: 'check', bad: 'shield', wait: 'clock', info: 'qr' }[kind] || 'check';
+  return `
+    <div class="state ${kind}">
+      <span class="state-icon">${icon(ic)}</span>
+      <h3>${title}</h3>
+      ${text ? `<p class="muted">${text}</p>` : ''}
+      ${extra}
+    </div>`;
+}
+
+// Day picker as toggle chips (the inputs keep name="days", so forms and price boxes work as before)
+function dayChips(days, isWeekend) {
+  return `<div class="day-chips">${days.map(([code, label]) => `
+    <label class="day-chip"><input type="checkbox" name="days" value="${code}"><span>${label.slice(0, 3)}<small>${isWeekend(code) ? 'Weekend' : 'Weekday'}</small></span></label>`).join('')}</div>`;
+}
+
 function authShell(active, inner) {
   // When coming from the other tab, the pill starts on the old side and the form slides in from that direction
   const switching = authAnim.last && authAnim.last !== active;
@@ -321,11 +361,7 @@ function authShell(active, inner) {
   const slide = switching ? (active === 'register' ? 'from-right' : 'from-left') : 'fade-in';
   return `
     <div class="auth-split">
-    <aside class="auth-visual" aria-hidden="true">
-      <span class="eyebrow">Octopus Sports Academy</span>
-      <h2>The pool downstairs is your new classroom.</h2>
-      <p>Private and group swimming classes, held right at your condo.</p>
-    </aside>
+    ${authVisual()}
     <div class="auth">
       <img class="auth-logo" src="img/logo.svg" alt="">
       <h1>Octopus Sports Academy</h1>
@@ -445,47 +481,75 @@ function register() {
 }
 
 function forgot() {
-  $('#app').innerHTML = `
-    <div class="form-card">
-      <h1>Forgot password</h1>
+  $('#app').innerHTML = authPage({
+    title: 'Forgot your password?',
+    sub: 'We will email you a link to choose a new one',
+    body: `
       <form id="f">
         <div class="field"><label for="email">Your email</label>
-          <input id="email" name="email" type="email" required></div>
+          <input id="email" name="email" type="email" required autocomplete="email" placeholder="you@example.com"></div>
         <p data-msg class="error"></p>
-        <button type="submit" class="block">Send reset link</button>
+        <button type="submit" class="block auth-btn">Send reset link</button>
       </form>
-      <p class="muted" style="margin-top:12px"><a href="#/login">Back to log in</a></p>
-    </div>`;
-  bindForm('#f', async (data) => (await api('/auth/forgot-password', { body: data })).message);
+      <p class="auth-foot"><a href="#/login">${icon('arrow')} Back to log in</a></p>`,
+  });
+  bindForm('#f', async (data, form) => {
+    const r = await api('/auth/forgot-password', { body: data });
+    form.outerHTML = stateBlock('ok', 'Check your email', `${esc(r.message)} The link is valid for 1 hour.`);
+  });
 }
 
 function reset(_id, params) {
   const token = params.get('token') || '';
-  $('#app').innerHTML = `
-    <div class="form-card">
-      <h1>Set a new password</h1>
+  if (!token) {
+    $('#app').innerHTML = authPage({
+      title: 'Set a new password',
+      sub: 'This page needs the link from your email',
+      body: stateBlock('bad', 'Link is missing', 'Open the reset link from your email, or ask for a new one.',
+        '<a href="#/forgot"><button type="button" class="block">Send a new link</button></a>'),
+    });
+    return;
+  }
+  $('#app').innerHTML = authPage({
+    title: 'Set a new password',
+    sub: 'Choose a password you do not use anywhere else',
+    body: `
       <form id="f">
         <div class="field"><label for="password">New password (min 8 characters)</label>
-          <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
+          <input id="password" name="password" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></div>
+        <div class="field"><label for="password2">Type it again</label>
+          <input id="password2" name="password2" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></div>
         <p data-msg class="error"></p>
-        <button type="submit" class="block">Change password</button>
+        <button type="submit" class="block auth-btn">Change password</button>
       </form>
-    </div>`;
-  bindForm('#f', async (data) => {
+      <p class="auth-foot"><a href="#/login">${icon('arrow')} Back to log in</a></p>`,
+  });
+  bindForm('#f', async (data, form) => {
+    if (data.password !== data.password2) throw new Error('The two passwords are not the same');
     const r = await api('/auth/reset-password', { body: { token, password: data.password } });
-    setTimeout(() => (location.hash = '#/login'), 1500);
-    return r.message;
+    form.outerHTML = stateBlock('ok', 'Password changed', `${esc(r.message)} Taking you to log in...`);
+    setTimeout(() => (location.hash = '#/login'), 1800);
   });
 }
 
 async function verify(_id, params) {
   const app = $('#app');
-  app.innerHTML = '<p class="card">Verifying your email...</p>';
+  const page = (body) => authPage({ title: 'Verify your email', sub: 'One last step before you can log in', body });
+  app.innerHTML = page(stateBlock('wait', 'Checking your link...', ''));
   try {
     const r = await api('/auth/verify', { body: { token: params.get('token') || '' } });
-    app.innerHTML = `<div class="form-card"><p class="success">${esc(r.message)}</p><a href="#/login">Go to log in</a></div>`;
+    app.innerHTML = page(stateBlock('ok', 'Email verified', esc(r.message),
+      '<a href="#/login"><button type="button" class="block">Go to log in</button></a>'));
   } catch (err) {
-    app.innerHTML = `<div class="form-card"><p class="error">${esc(err.message)}</p></div>`;
+    // Expired or used link: offer a new one right here
+    app.innerHTML = page(stateBlock('bad', 'This link does not work', esc(err.message), `
+      <form id="resend" class="state-form">
+        <div class="field"><label for="rEmail">Get a new link</label>
+          <input id="rEmail" name="email" type="email" required placeholder="you@example.com" autocomplete="email"></div>
+        <p data-msg class="error"></p>
+        <button type="submit" class="block">Send new link</button>
+      </form>`));
+    bindForm('#resend', async (data) => (await api('/auth/resend-verification', { body: data })).message);
   }
 }
 
@@ -875,34 +939,68 @@ async function wirePriceBox(formSel) {
   render();
 }
 
+// Shared layout of the two request forms: steps on the left, "what happens next" on the right.
+// Field names stay the same (per_week, days, start_time, skill_level, people, unit_number) for wirePriceBox.
+function requestFormHtml({ formId, condoStep, backHref, backLabel }) {
+  const days = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
+  let n = 0;
+  const step = (title) => `<div class="join-step"><span class="step-no">${++n}</span><h3>${title}</h3></div>`;
+  return `
+    <div class="join-grid">
+      <form id="${formId}" class="panel join-form">
+        ${condoStep ? `${step('Your condo')}${condoStep}` : ''}
+        ${step('When')}
+        <div class="row join-top">
+          <div class="field"><label for="${formId}-pw">Times a week</label>
+            <select id="${formId}-pw" name="per_week"><option value="1">Once a week</option><option value="2">Twice a week</option></select></div>
+          <div class="field" style="flex:1"><label for="${formId}-time">Start time (Malaysia time)</label>
+            <input id="${formId}-time" name="start_time" type="time" required></div>
+        </div>
+        <div class="field"><label>Days <span class="muted">(1 day for once a week, 2 for twice a week)</span></label>${dayChips(days, isWeekendCode)}</div>
+        ${step('Who')}
+        <div class="row join-top">
+          <div class="field" style="flex:1"><label for="${formId}-level">Swimming level</label><select id="${formId}-level" name="skill_level">${levelOptions()}</select></div>
+          <div class="field" style="flex:1"><label for="${formId}-people">How many people?</label>
+            <select id="${formId}-people" name="people">
+              <option value="1">Private (1 person)</option><option value="2">2 people</option><option value="3">3 people</option><option value="4">4 people</option><option value="5">5 or more</option>
+            </select></div>
+        </div>
+        <div class="field"><label for="${formId}-unit">Unit number</label>
+          <input id="${formId}-unit" name="unit_number" required maxlength="20" placeholder="e.g. A-12-3"></div>
+        <p class="muted small" style="margin:-6px 0 14px">The unit number lets the coach register as your visitor at the condo gate.</p>
+        <div id="priceBox" class="price-box result-box"></div>
+        <p data-msg class="error"></p>
+        <button type="submit" class="block">Send request</button>
+        <p class="auth-foot"><a href="${backHref}">${icon('arrow')} ${backLabel}</a></p>
+      </form>
+      <aside class="panel join-help">
+        <div class="panel-head"><span class="panel-icon">${icon('inbox')}</span><div><h3>What happens next</h3><p class="muted">No payment now.</p></div></div>
+        <ul class="offer-facts">
+          <li>${icon('shield')}<span>The academy reviews your request and finds a coach.</span></li>
+          <li>${icon('calendar')}<span>Once approved, the class appears on the condo page with its dates.</span></li>
+          <li>${icon('users')}<span>A group class starts when enough people join. Invite your neighbours!</span></li>
+          <li>${icon('clock')}<span>You can have a limited number of requests waiting at the same time.</span></li>
+        </ul>
+      </aside>
+    </div>`;
+}
+
 // ---------- student adds a condo that is not in the app, with a class ----------
 function newCondo(_id, params) {
   const name = params.get('name') || '';
-  const days = [['sun', 'Sunday'], ['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday']];
   $('#app').innerHTML = `
-    <h1>Add your condo and class</h1>
-    <p class="muted">Tell us your condo and the class you want. The academy will review it, and your condo will appear in the app once it is approved.</p>
-    <form id="fCondoNew" class="form-card" style="max-width:560px;margin-left:0">      <div class="field"><label for="cName">Condo name</label>
-        <input id="cName" name="condo_name" required minlength="2" maxlength="120" value="${esc(name)}"></div>
-      <div class="field"><label for="perWeek2">How many times a week?</label>
-        <select id="perWeek2" name="per_week"><option value="1">Once a week</option><option value="2">Twice a week</option></select></div>
-      <div class="field"><label>Days (pick one day for once a week, or two for twice a week)</label>
-        ${days.map(([code, label]) => `<label style="display:flex;gap:8px;align-items:center;color:inherit;margin:4px 0"><input type="checkbox" name="days" value="${code}" style="width:auto"> ${label} <span class="muted">${isWeekendCode(code) ? '· Weekend' : '· Weekday'}</span></label>`).join('')}
-      </div>
-      <div class="field"><label for="time2">Start time (Malaysia time)</label>
-        <input id="time2" name="start_time" type="time" required></div>
-      <div class="field"><label for="level2">Swimming level</label><select id="level2" name="skill_level">${levelOptions()}</select></div>
-      <div class="field"><label for="people2">How many people?</label>
-        <select id="people2" name="people">
-          <option value="1">Private (1 person)</option><option value="2">2 people</option><option value="3">3 people</option><option value="4">4 people</option><option value="5">5 or more</option>
-        </select></div>
-      <div class="field"><label for="unitNo2">Unit number (for coach registration at the condo gate as visitors)</label>
-        <input id="unitNo2" name="unit_number" required maxlength="20"></div>
-      <div id="priceBox" class="card price-box"></div>
-      <p data-msg class="error"></p>
-      <button type="submit" class="block">Send request</button>
-      <p class="muted" style="margin-top:12px"><a href="#/">Back to home</a></p>
-    </form>`;
+    <p class="crumbs"><a href="#/">Condos</a><span>/</span>Add your condo</p>
+    <div class="page-head">
+      <span class="page-icon">${icon('building')}</span>
+      <div><h1>Add your condo and class</h1><p class="muted">Your condo is not in the app yet. Tell us where and when, and the academy will set it up.</p></div>
+    </div>
+    ${requestFormHtml({
+      formId: 'fCondoNew',
+      condoStep: `<div class="field"><label for="cName">Condo name</label>
+        <input id="cName" name="condo_name" required minlength="2" maxlength="120" value="${esc(name)}"></div>`,
+      backHref: '#/',
+      backLabel: 'Back to home',
+    })}`;
   wirePriceBox('#fCondoNew');
   bindForm('#fCondoNew', async (data, form) => {
     const selectedDays = [...form.querySelectorAll('input[name="days"]:checked')].map((i) => i.value);
@@ -923,29 +1021,13 @@ function newCondo(_id, params) {
 
 // ---------- student proposes a new class ----------
 function newClass(condoId) {
-  const days = [['sun', 'Sunday'], ['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday']];
   $('#app').innerHTML = `
-    <h1>Add a class</h1>
-    <p class="muted">Tell us what works for you. The academy will review it, and the class will appear on this condo page once it is approved.</p>
-    <form id="fNew" class="form-card" style="max-width:560px;margin-left:0">      <div class="field"><label for="perWeek">How many times a week?</label>
-        <select id="perWeek" name="per_week"><option value="1">Once a week</option><option value="2">Twice a week</option></select></div>
-      <div class="field"><label>Days (pick one day for once a week, or two for twice a week)</label>
-        ${days.map(([code, label]) => `<label style="display:flex;gap:8px;align-items:center;color:inherit;margin:4px 0"><input type="checkbox" name="days" value="${code}" style="width:auto"> ${label} <span class="muted">${isWeekendCode(code) ? '· Weekend' : '· Weekday'}</span></label>`).join('')}
-      </div>
-      <div class="field"><label for="startTime">Start time (Malaysia time)</label>
-        <input id="startTime" name="start_time" type="time" required></div>
-      <div class="field"><label for="level">Swimming level</label><select id="level" name="skill_level">${levelOptions()}</select></div>
-      <div class="field"><label for="people">How many people?</label>
-        <select id="people" name="people">
-          <option value="1">Private (1 person)</option><option value="2">2 people</option><option value="3">3 people</option><option value="4">4 people</option><option value="5">5 or more</option>
-        </select></div>
-      <div class="field"><label for="unitNo">Unit number (for coach registration at the condo gate as visitors)</label>
-        <input id="unitNo" name="unit_number" required maxlength="20"></div>
-      <div id="priceBox" class="card price-box"></div>
-      <p data-msg class="error"></p>
-      <button type="submit" class="block">Send request</button>
-      <p class="muted" style="margin-top:12px"><a href="#/condo/${esc(condoId)}">Back to condo</a></p>
-    </form>`;
+    <p class="crumbs"><a href="#/">Condos</a><span>/</span><a href="#/condo/${esc(condoId)}">Condo</a><span>/</span>Request a class</p>
+    <div class="page-head">
+      <span class="page-icon">${icon('plus')}</span>
+      <div><h1>Request a class</h1><p class="muted">No class fits you? Tell us what works and the academy will set it up at your condo.</p></div>
+    </div>
+    ${requestFormHtml({ formId: 'fNew', backHref: `#/condo/${esc(condoId)}`, backLabel: 'Back to condo' })}`;
   wirePriceBox('#fNew');
   bindForm('#fNew', async (data, form) => {
     const days = [...form.querySelectorAll('input[name="days"]:checked')].map((i) => i.value);
@@ -1111,15 +1193,16 @@ async function invite(code) {
   if (!state.user) {
     pendingInviteSet(code);
     $('#app').innerHTML = `
-      <h1>You are invited</h1>
-      <div class="card">
-        <p>A friend invited you to a swimming class at Octopus Sports Academy.</p>
-        <p class="muted">Create an account or log in first. After you log in, this invite opens again by itself.</p>
-        <div class="row">
+      <section class="invite-hero">
+        <span class="invite-gift">${icon('gift')}</span>
+        <span class="eyebrow">You are invited</span>
+        <h1>A friend saved you a spot in the pool</h1>
+        <p>Create an account or log in first. After you log in, this invite opens again by itself.</p>
+        <div class="row invite-actions">
           <a href="#/register"><button type="button">Create account</button></a>
-          <a href="#/login"><button type="button" class="secondary">I have an account</button></a>
+          <a href="#/login"><button type="button" class="ghost">I have an account</button></a>
         </div>
-      </div>`;
+      </section>`;
     return;
   }
   pendingInviteSet(null);
@@ -1127,20 +1210,34 @@ async function invite(code) {
   try {
     info = await api(`/invites/${encodeURIComponent(code)}`);
   } catch (err) {
-    $('#app').innerHTML = `<h1>Invite</h1><p class="error">${esc(err.message)}</p>`;
+    $('#app').innerHTML = `<div class="narrow">${stateBlock('bad', 'This invite does not work', esc(err.message),
+      '<a href="#/"><button type="button">Find a class</button></a>')}</div>`;
     return;
   }
   $('#app').innerHTML = `
-    <h1>You are invited</h1>
-    <div class="card">
+    <section class="invite-hero">
+      <span class="invite-gift">${icon('gift')}</span>
+      <span class="eyebrow">You are invited</span>
+      <h1>${esc(info.inviter_name)} invited you to swim</h1>
+      <p>Join their group class at ${esc(info.condo_name)}.</p>
+    </section>
+    <article class="card offer-card invite-card">
+      <div class="offer-top">
+        <span class="type-chip group">${icon('users')}Group</span>
+        <span class="badge ${info.seats_left ? 'ok' : 'full'}">${info.seats_left} seat${info.seats_left === 1 ? '' : 's'} left</span>
+      </div>
       <h3>${esc(info.class_name)}</h3>
-      <div class="muted">${esc(info.condo_name)} · invited by ${esc(info.inviter_name)}</div>
-      <div style="margin:6px 0"><span class="badge">${esc(info.skill_level)}</span><span class="badge">Age ${info.min_age}–${info.max_age}</span><span class="badge">${info.seats_left} seats left</span></div>
-      <p>Price per person: <strong>${rm(info.price_per_person_cents)}</strong></p>
-      ${info.can_accept
-        ? `<a href="#/join/${esc(info.class_id)}?invite=${esc(code)}"><button type="button" class="block">Join this class</button></a>`
-        : `<p class="error">${esc(info.reason)}</p>`}
-    </div>`;
+      <div class="offer-tags"><span class="badge level">${esc(info.skill_level)}</span><span class="badge">Age ${info.min_age}–${info.max_age}</span></div>
+      <ul class="offer-facts">
+        <li>${icon('pin')}<span>${esc(info.condo_name)}</span></li>
+        <li>${icon('user')}<span>Invited by <strong>${esc(info.inviter_name)}</strong></span></li>
+      </ul>
+      <div class="offer-foot">
+        <div class="offer-price"><strong>${rm(info.price_per_person_cents)}</strong><span>package · per person</span></div>
+        ${info.can_accept ? `<a href="#/join/${esc(info.class_id)}?invite=${esc(code)}"><button type="button">Join this class</button></a>` : ''}
+      </div>
+      ${info.can_accept ? '' : `<p class="error" style="margin:12px 0 0">${esc(info.reason)}</p>`}
+    </article>`;
 }
 
 async function enroll(classId, participants, unit, invite = null) {
@@ -1481,16 +1578,24 @@ async function checkin(_id, params) {
   const app = $('#app');
   const token = params.get('token') || sessionStorage.getItem('pendingCheckin');
   app.innerHTML = `
-    <h1>Check in</h1>
-    <div class="card" id="status">${token ? 'Checking you in...' : 'Scan the QR code shown by your coach.'}</div>
-    ${token ? '' : `
-      <div class="card">
-        <button type="button" id="cam" class="block">Open camera to scan</button>
-        <video id="video" hidden playsinline muted></video>
-        <p class="muted" id="camNote"></p>
-        <label for="manual" style="margin-top:12px">Coach not available? Paste the QR link or code</label>
-        <div class="row"><input id="manual" class="inline-input" placeholder="Paste link or code"><button type="button" id="manualGo">Check in</button></div>
-      </div>`}`;
+    <div class="page-head">
+      <span class="page-icon">${icon('qr')}</span>
+      <div><h1>Check in</h1><p class="muted">Scan your coach's QR code at the pool. Check-in opens 30 minutes before the class.</p></div>
+    </div>
+    <div class="narrow">
+      <div class="panel" id="status">${token
+        ? stateBlock('wait', 'Checking you in...', '')
+        : stateBlock('info', 'Ready to scan', 'Point your camera at the QR code your coach shows you.')}</div>
+      ${token ? '' : `
+        <div class="panel scan-panel">
+          <button type="button" id="cam" class="block scan-btn">${icon('qr')} Open camera to scan</button>
+          <video id="video" hidden playsinline muted></video>
+          <p class="muted small" id="camNote"></p>
+          <div class="or-line"><span>or</span></div>
+          <label for="manual">Paste the QR link or code</label>
+          <div class="row" style="flex-wrap:nowrap"><input id="manual" class="inline-input" placeholder="Paste link or code"><button type="button" id="manualGo">Check in</button></div>
+        </div>`}
+    </div>`;
   if (token) return submitCheckin(token);
 
   $('#manualGo').onclick = () => {
@@ -1533,9 +1638,11 @@ async function submitCheckin(token) {
   const status = $('#status');
   try {
     const r = await api('/attendance/checkin', { body: { token } });
-    status.innerHTML = `<p class="success">${esc(r.message)}</p><p>${esc(r.participants.join(', '))}</p>`;
+    status.innerHTML = stateBlock(r.status === 'late' ? 'wait' : 'ok', esc(r.message),
+      `Checked in: <strong>${esc(r.participants.join(', '))}</strong>`,
+      '<a href="#/me"><button type="button" class="secondary">Go to my classes</button></a>');
   } catch (err) {
-    status.innerHTML = `<p class="error">${esc(err.message)}</p>`;
+    status.innerHTML = stateBlock('bad', 'Could not check you in', esc(err.message));
   }
 }
 

@@ -897,3 +897,136 @@ button.ghost:hover { background: rgba(255, 255, 255, .18); box-shadow: none; }
   .join-top { flex-wrap: wrap; }
   .join-top .field:first-child { width: 100%; }
 }
+
+/* ---------- Account screens without tabs (forgot / reset / verify) ---------- */
+.auth-foot { text-align: center; margin: 14px 0 0; font-size: 14px; }
+.auth-foot a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.auth-foot svg { width: 15px; height: 15px; transform: rotate(180deg); }
+
+/* Big round icon + title + text: success / problem / waiting screens */
+.state { text-align: center; padding: 8px 4px; }
+.state-icon {
+  width: 64px; height: 64px; margin: 4px auto 14px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--soft); color: var(--blue);
+}
+.state-icon svg { width: 30px; height: 30px; }
+.state.ok .state-icon { background: rgba(22, 163, 74, .14); color: var(--ok); }
+.state.bad .state-icon { background: rgba(220, 38, 38, .12); color: var(--bad); }
+.state.wait .state-icon { background: rgba(217, 119, 6, .14); color: var(--warn); }
+.state.wait .state-icon svg { animation: spin 2.4s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.state h3 { margin: 0 0 6px; font-size: 19px; font-family: var(--font-display); }
+.state p { margin: 0 auto 16px; max-width: 360px; }
+.state a button, .state > button { min-width: 200px; }
+.state-form { text-align: left; margin-top: 10px; padding-top: 14px; border-top: 1px dashed var(--line); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .state.ok .state-icon { color: #86efac; }
+  :root:not([data-theme="light"]) .state.bad .state-icon { color: #fca5a5; }
+  :root:not([data-theme="light"]) .state.wait .state-icon { color: #fcd34d; }
+}
+:root[data-theme="dark"] .state.ok .state-icon { color: #86efac; }
+:root[data-theme="dark"] .state.bad .state-icon { color: #fca5a5; }
+:root[data-theme="dark"] .state.wait .state-icon { color: #fcd34d; }
+
+.narrow { max-width: 560px; }
+.narrow > .panel + .panel { margin-top: 14px; }
+
+/* ---------- Day picker chips ---------- */
+.day-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.day-chip { position: relative; display: inline-block; margin: 0; color: var(--ink); }
+.day-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.day-chip span {
+  display: inline-flex; flex-direction: column; align-items: center; min-width: 64px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer;
+  font-weight: 700; font-size: 14px; line-height: 1.2; transition: background .15s, border-color .15s, color .15s;
+}
+.day-chip small { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+.day-chip:hover span { border-color: var(--blue); }
+.day-chip input:checked + span { background: var(--blue); border-color: var(--blue); color: #fff; }
+.day-chip input:checked + span small { color: rgba(255, 255, 255, .85); }
+.day-chip input:focus-visible + span { box-shadow: var(--ring); }
+
+/* Request forms reuse the join layout; the price box sits inside the form */
+.join-form .price-box { margin: 4px 0 14px; }
+.join-form .price-box .price-grid > div { background: var(--card); }
+
+/* ---------- Invite ---------- */
+.invite-hero {
+  position: relative; overflow: hidden; isolation: isolate; text-align: center;
+  background: var(--grad-deep); color: #fff; border-radius: 24px; padding: 40px 24px 34px; margin-bottom: 20px;
+  box-shadow: var(--shadow-lg);
+}
+.invite-hero::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(360px 220px at 50% 0%, rgba(255, 107, 87, .22), transparent 70%);
+}
+.invite-hero h1 { color: #fff; margin: 6px auto 8px; font-size: 34px; max-width: 600px; }
+.invite-hero p { margin: 0 auto; color: rgba(255, 255, 255, .82); max-width: 520px; }
+.invite-hero .eyebrow { justify-content: center; }
+.invite-gift { width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 18px; display: grid; place-items: center; background: var(--coral); color: var(--navy); box-shadow: 0 10px 26px rgba(255, 107, 87, .35); }
+.invite-gift svg { width: 30px; height: 30px; }
+.invite-actions { justify-content: center; margin-top: 22px; }
+.invite-card { max-width: 520px; margin: 0 auto; }
+
+/* ---------- Check-in ---------- */
+.scan-panel label { margin-top: 2px; }
+.scan-btn { padding: 15px; font-size: 16px; }
+.scan-btn svg { width: 20px; height: 20px; }
+.scan-panel video { margin-top: 12px; }
+.or-line { display: flex; align-items: center; gap: 12px; margin: 16px 0 12px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+.or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* ---------- Admin forms, lists and tables ---------- */
+.panel.admin-form { padding: 22px; margin-bottom: 8px; }
+.form-title { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.form-title h3 { margin: 0; font-size: 16px; }
+.form-title p { margin: 2px 0 0; font-size: 13px; }
+.admin-form .price-box { margin: 6px 0 14px; }
+.list-row { align-items: center; gap: 14px; }
+.condo-tile.sm { width: 42px; height: 42px; border-radius: 11px; }
+.condo-tile.sm svg { width: 20px; height: 20px; }
+#condoList .card, #condoList form { margin-bottom: 10px; }
+
+.card.table-card { padding: 0; overflow-x: auto; }
+.table-card.inner { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 14px; }
+.table-card table th { background: var(--bg); padding: 12px 14px; }
+.table-card table td { padding: 12px 14px; }
+.table-card table th:first-child, .table-card table td:first-child { padding-left: 18px; }
+.price-table input { width: 120px; min-width: 110px; }
+.price-table td:first-child { font-weight: 600; white-space: nowrap; }
+.user-cell { display: flex; align-items: center; gap: 10px; }
+.user-cell .avatar { width: 34px; height: 34px; font-size: 12px; }
+@media (max-width: 700px) {
+  .table-card table.stack tr { padding: 12px 16px; }
+}
+
+.search-bar { display: flex; gap: 10px; padding: 12px; margin-bottom: 14px; }
+.search-bar input { border-radius: 999px; }
+.search-bar button { border-radius: 999px; padding-left: 22px; padding-right: 22px; }
+
+.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.settings-grid .row { flex-wrap: wrap; }
+
+.rating-list { display: flex; flex-direction: column; gap: 10px; }
+.rating-row { display: flex; gap: 14px; align-items: flex-start; margin: 0; }
+.rating-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.stars { color: var(--coral); letter-spacing: 1px; font-size: 15px; }
+.stars span { color: var(--line); }
+.rating-reason { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); border-left: 3px solid var(--coral); font-size: 14px; }
+
+/* Popups */
+.modal-title { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 19px; }
+.modal-title svg { width: 20px; height: 20px; color: var(--blue); flex-shrink: 0; }
+.modal table th { background: var(--bg); }
+
+@media (max-width: 760px) {
+  .settings-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .invite-hero h1 { font-size: 26px; }
+  .panel.admin-form { padding: 16px; }
+  .search-bar { padding: 10px; }
+  .day-chip span { min-width: 56px; padding: 7px 9px; }
+}
+/* Columns that only matter on wide screens (e.g. long ids) */
+@media (max-width: 700px) { .hide-sm { display: none !important; } table.stack td[data-label] select { margin-top: 4px; max-width: 220px; } }

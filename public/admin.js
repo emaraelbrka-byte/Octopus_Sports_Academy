@@ -22,6 +22,9 @@ const ADMIN_ICONS = {
 };
 
 // Breadcrumb + icon + title + one-line description, shared by every admin subpage
+const formTitle = (ic, title, sub = '') => `
+  <div class="form-title"><span class="panel-icon">${icon(ic)}</span><div><h3>${title}</h3>${sub ? `<p class="muted">${sub}</p>` : ''}</div></div>`;
+
 function adminHeader(slug) {
   const [, title, desc] = ADMIN_PAGES.find(([s]) => s === slug);
   return `
@@ -111,11 +114,12 @@ async function adminCondos() {
     const box = $('#condoList');
     $('#condoCount').textContent = condos.length;
     if (!condos.length) {
-      box.innerHTML = '<p class="muted">No condos yet. Add one above.</p>';
+      box.innerHTML = '<div class="empty-state"><h3>No condos yet</h3><p class="muted">Add your first condo above.</p></div>';
       return;
     }
     box.innerHTML = condos.map((c) => (c.id === editingId
-      ? `<form class="card" data-edit-form="${esc(c.id)}">
+      ? `<form class="panel admin-form" data-edit-form="${esc(c.id)}">
+           ${formTitle('building', `Edit ${esc(c.name)}`)}
            ${condoFields(c)}
            <p data-msg class="error"></p>
            <div class="row">
@@ -124,7 +128,8 @@ async function adminCondos() {
              <button type="submit">Save changes</button>
            </div>
          </form>`
-      : `<div class="card row">
+      : `<div class="card row list-row">
+           <span class="condo-tile sm">${icon('building')}</span>
            <div class="spacer">
              <strong>${esc(c.name)}</strong>${c.is_published ? '' : ' <span class="badge late">hidden from students</span>'}
              <div class="muted">${esc(c.address || 'No address')} · ${c.class_count} class${c.class_count === 1 ? '' : 'es'}</div>
@@ -172,8 +177,8 @@ async function adminCondos() {
 
   $('#app').innerHTML = `
     ${adminHeader('condos')}
-    <h2>Add a condo</h2>
-    <form id="fCondo" class="card">
+    <form id="fCondo" class="panel admin-form">
+      ${formTitle('plus', 'Add a condo', 'Only the name is needed. Students see it on the home page.')}
       ${condoFields()}
       <p data-msg class="error"></p>
       <button type="submit">Add condo</button>
@@ -250,12 +255,12 @@ async function adminClasses() {
   };
   const condoOptions = condos.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
   const coachOptions = coaches.map((c) => `<option value="${esc(c.id)}">${esc(c.username)}</option>`).join('');
-  const dayBoxes = ADMIN_DAYS.map(([code, label]) => `
-    <label style="display:flex;gap:8px;align-items:center;color:inherit;margin:4px 0"><input type="checkbox" name="days" value="${code}" style="width:auto"> ${label} <span class="muted">${isAdminWeekend(code) ? '· Weekend' : '· Weekday'}</span></label>`).join('');
+  const dayBoxes = dayChips(ADMIN_DAYS, isAdminWeekend);
 
   $('#app').innerHTML = `
     ${adminHeader('classes')}
-    <form id="fClass" class="card">
+    <form id="fClass" class="panel admin-form">
+      ${formTitle('plus', 'Add a class', 'Tick the days: the name, the package price and one month of sessions are made for you.')}
       <div class="row">
         <div class="field spacer"><label>Condo</label><select name="condo_id" required>${condoOptions}</select></div>
         <div class="field spacer"><label>Type</label><select name="class_type"><option value="group">Group</option><option value="one_to_one">Private One to One</option></select></div>
@@ -366,10 +371,10 @@ async function adminClassList() {
   $('#classCount').textContent = classes.length;
   const box = $('#classList');
   if (!classes.length) {
-    box.innerHTML = '<p class="muted">No classes yet. Add one above.</p>';
+    box.innerHTML = '<div class="empty-state"><h3>No classes yet</h3><p class="muted">Add your first class above.</p></div>';
     return;
   }
-  box.innerHTML = `<div class="card" style="overflow-x:auto">
+  box.innerHTML = `<div class="card table-card">
     <table class="stack">
       <thead><tr><th>Class</th><th>Condo</th><th>Coach</th><th>Price</th><th>Sessions</th><th></th></tr></thead>
       <tbody>
@@ -420,7 +425,7 @@ async function openPayments(c, min) {
   wrap.className = 'modal-backdrop';
   wrap.innerHTML = `
     <div class="modal" style="max-width:480px;width:100%;max-height:90vh;overflow:auto;text-align:left">
-      <h2 style="margin-top:0">Payments · ${esc(c.name)}</h2>
+      <h2 class="modal-title">${icon('tag')} Payments · ${esc(c.name)}</h2>
       <p class="muted" id="payInfo"></p>
       <div id="payList">Loading...</div>
       <p class="muted" style="font-size:13px">Online payment is not connected yet, so the academy ticks people as paid here when the money is received.</p>
@@ -464,7 +469,7 @@ async function openClassEditor(c) {
   wrap.className = 'modal-backdrop';
   wrap.innerHTML = `
     <form class="modal" style="max-width:520px;width:100%;max-height:90vh;overflow:auto;text-align:left">
-      <h2 style="margin-top:0">Edit class</h2>
+      <h2 class="modal-title">${icon('wave')} Edit class</h2>
       <div class="field"><label>Name</label><input name="name" required minlength="2" maxlength="120" value="${esc(c.name)}"></div>
       <div class="field"><label>Condo</label><select name="condo_id">${opt(condos, c.condo_id, 'name')}</select></div>
       <div class="field"><label>Coach</label><select name="coach_id"><option value="">— none yet —</option>${opt(coaches, c.coach_id, 'username')}</select></div>
@@ -555,7 +560,8 @@ async function adminSessions() {
     </optgroup>`).join('');
   $('#app').innerHTML = `
     ${adminHeader('sessions')}
-    <form id="fSess" class="card">
+    <form id="fSess" class="panel admin-form">
+      ${formTitle('calendar', 'Add a session', 'One extra date for a class. Times are Malaysia time.')}
       <div class="row">
         <div class="field spacer"><label for="sessClass">Class</label>
           <select id="sessClass" name="class_id" required>
@@ -582,14 +588,14 @@ async function adminRequests() {
   const requestsById = Object.fromEntries(requests.map((r) => [r.id, r]));
   $('#app').innerHTML = `
     ${adminHeader('requests')}
-    <div class="card" style="overflow-x:auto">
+    <div class="card table-card">
       ${requests.length ? `<table class="stack"><thead><tr><th>Date</th><th>Condo</th><th>Contact</th><th>Details</th><th>Status</th></tr></thead><tbody>
         ${requests.map((r) => `<tr>
           <td data-label="Date">${esc(fmtTime(r.created_at))}</td><td data-label="Condo">${esc(r.condo_name)}</td>
           <td data-label="Contact">${esc(r.username)}<div class="muted">${esc(r.phone)}</div></td>
           <td data-label="Details">${requestDetails(r)}</td>
           <td data-label="Status"><select data-req="${esc(r.id)}">${['new', 'in_progress', 'done', 'rejected'].map((s) => `<option ${r.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-        </tr>`).join('')}</tbody></table>` : '<p class="muted">No requests.</p>'}
+        </tr>`).join('')}</tbody></table>` : '<div class="empty-state"><h3>No open requests</h3><p class="muted">New class and condo requests from students appear here.</p></div>'}
     </div>`;
 
   document.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => openProposalEditor(requestsById[b.dataset.edit], coaches)));
@@ -640,7 +646,7 @@ function openApprove(r) {
   wrap.className = 'modal-backdrop';
   wrap.innerHTML = `
     <form class="modal" id="fApprove" style="max-width:420px;text-align:left">
-      <h2 style="margin-top:0">Approve & publish</h2>
+      <h2 class="modal-title">${icon('check')} Approve & publish</h2>
       <p class="muted" style="margin-top:0">${esc(days)} · ${total} sessions this month (${d.people === 1 ? '60' : '40'} min each)</p>
       <div class="field"><label for="apTime">Start time (Malaysia time)</label>
         <input id="apTime" name="start_time" type="time" required value="17:00"></div>
@@ -680,18 +686,31 @@ function openApprove(r) {
 function adminUsers() {
   $('#app').innerHTML = `
     ${adminHeader('users')}
-    <form id="fUsers" class="row"><input name="q" class="inline-input" placeholder="Search username or email"><button type="submit">Search</button></form>
-    <div id="userList" class="card" style="overflow-x:auto;margin-top:8px"></div>`;
+    <form id="fUsers" class="panel search-bar"><input name="q" class="inline-input" placeholder="Search username or email" aria-label="Search users"><button type="submit">Search</button></form>
+    <div id="userList" class="card table-card"></div>`;
   const loadUsers = async (q) => {
     const { users } = await api(`/admin/users?q=${encodeURIComponent(q)}`);
-    $('#userList').innerHTML = `<table><thead><tr><th>User</th><th>ID</th><th>Role</th></tr></thead><tbody>
-      ${users.map((u) => `<tr><td>${esc(u.username)}<div class="muted">${esc(u.email)}</div></td>
-        <td class="muted" style="font-size:12px">${esc(u.id)}</td>
-        <td><select data-role="${esc(u.id)}">${['student', 'coach', 'admin'].map((r) => `<option ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></td></tr>`).join('')}
+    if (!users.length) {
+      $('#userList').innerHTML = '<div class="empty-state"><h3>No users found</h3><p class="muted">Try another name or email.</p></div>';
+      return;
+    }
+    $('#userList').innerHTML = `<table class="stack"><thead><tr><th>User</th><th class="hide-sm">ID</th><th>Role</th></tr></thead><tbody>
+      ${users.map((u) => `<tr><td data-label="User"><div class="user-cell"><span class="avatar" aria-hidden="true">${esc(initials(u.username))}</span><div><strong>${esc(u.username)}</strong><div class="muted">${esc(u.email)}</div></div></div></td>
+        <td class="muted hide-sm" style="font-size:12px">${esc(u.id)}</td>
+        <td data-label="Role"><select data-role="${esc(u.id)}" aria-label="Role of ${esc(u.username)}">${['student', 'coach', 'admin'].map((r) => `<option ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></td></tr>`).join('')}
       </tbody></table>`;
-    document.querySelectorAll('[data-role]').forEach((sel) => sel.onchange = async () => {
-      await api(`/admin/users/${sel.dataset.role}/role`, { method: 'PUT', body: { role: sel.value } });
-      toast('Role updated');
+    document.querySelectorAll('[data-role]').forEach((sel) => {
+      sel.dataset.prev = sel.value;
+      sel.onchange = async () => {
+        try {
+          await api(`/admin/users/${sel.dataset.role}/role`, { method: 'PUT', body: { role: sel.value } });
+          sel.dataset.prev = sel.value;
+          toast('Role updated');
+        } catch (err) {
+          sel.value = sel.dataset.prev; // the change was refused: show the real role again
+          toast(err.message);
+        }
+      };
     });
   };
   $('#fUsers').addEventListener('submit', (e) => { e.preventDefault(); loadUsers(e.target.q.value.trim()); });
@@ -702,9 +721,10 @@ function adminUsers() {
 async function adminPrices() {
   $('#app').innerHTML = `
     ${adminHeader('prices')}
-    <form id="fPrices" class="card">
-      <div style="overflow-x:auto">
-        <table>
+    <form id="fPrices" class="panel admin-form">
+      ${formTitle('tag', 'Package prices', 'Price per person in RM. Group classes are charged at the 4–6 people price.')}
+      <div class="table-card inner">
+        <table class="price-table">
           <thead><tr><th>Package</th><th>1 person</th><th>2 people</th><th>3 people</th><th>4–6 people</th></tr></thead>
           <tbody>
             ${[['weekdays', 4, 'Weekdays · once a week · 4 classes'], ['weekdays', 8, 'Weekdays · twice a week · 8 classes'],
@@ -742,22 +762,26 @@ async function adminPrices() {
 function adminSettings() {
   $('#app').innerHTML = `
     ${adminHeader('settings')}
-    <h2>Condo chat</h2>
-    <form id="fChat" class="card row">
-      <label for="retention" style="margin:0">Delete messages after (days)</label>
-      <input id="retention" name="days" type="number" min="1" max="365" class="inline-input" style="max-width:120px" required>
-      <button type="submit">Save</button>
-      <p data-msg class="error" style="width:100%"></p>
-    </form>
-    <h2>Class request limits</h2>
-    <form id="fReq" class="card row">
-      <label for="reqLimit" style="margin:0">Max waiting requests per student</label>
-      <input id="reqLimit" name="limit" type="number" min="1" max="20" class="inline-input" style="max-width:120px" required>
-      <label for="reqDays" style="margin:0">Try again after (days)</label>
-      <input id="reqDays" name="days" type="number" min="1" max="365" class="inline-input" style="max-width:120px" required>
-      <button type="submit">Save</button>
-      <p data-msg class="error" style="width:100%"></p>
-    </form>`;
+    <div class="settings-grid">
+      <form id="fChat" class="panel admin-form">
+        ${formTitle('inbox', 'Condo chat', 'Old messages are deleted automatically.')}
+        <div class="field"><label for="retention">Delete messages after (days)</label>
+          <input id="retention" name="days" type="number" min="1" max="365" required></div>
+        <p data-msg class="error"></p>
+        <button type="submit">Save</button>
+      </form>
+      <form id="fReq" class="panel admin-form">
+        ${formTitle('sliders', 'Class request limits', 'Stops one student from sending too many requests.')}
+        <div class="row">
+          <div class="field spacer"><label for="reqLimit">Max waiting requests per student</label>
+            <input id="reqLimit" name="limit" type="number" min="1" max="20" required></div>
+          <div class="field spacer"><label for="reqDays">Try again after a decline (days)</label>
+            <input id="reqDays" name="days" type="number" min="1" max="365" required></div>
+        </div>
+        <p data-msg class="error"></p>
+        <button type="submit">Save</button>
+      </form>
+    </div>`;
   bindForm('#fChat', async (d) => {
     await api('/admin/settings/chat-retention', { method: 'PUT', body: { days: Number(d.days) } });
     return 'Saved. Messages older than this are deleted automatically.';
@@ -781,7 +805,14 @@ async function adminRatings() {
   const { ratings } = await api('/admin/ratings?max_stars=2');
   $('#app').innerHTML = `
     ${adminHeader('ratings')}
-    <div class="card">
-      ${ratings.length ? ratings.map((r) => `<div class="card"><strong>${esc(r.participant_name)}</strong> · ${r.stars} ★ · ${esc(r.class_name)} · coach ${esc(r.coach_name)}<div>${esc(r.reason || '')}</div></div>`).join('') : '<p class="muted">None.</p>'}
-    </div>`;
+    ${ratings.length ? `<div class="rating-list">${ratings.map((r) => `
+      <div class="card rating-row">
+        <span class="avatar" aria-hidden="true">${esc(initials(r.participant_name))}</span>
+        <div class="spacer">
+          <div class="rating-top"><strong>${esc(r.participant_name)}</strong><span class="stars" aria-label="${r.stars} of 5 stars">${'★'.repeat(r.stars)}<span>${'★'.repeat(5 - r.stars)}</span></span></div>
+          <div class="muted small">${esc(r.class_name)} · coach ${esc(r.coach_name)} · ${esc(fmtTime(r.created_at))}</div>
+          ${r.reason ? `<p class="rating-reason">“${esc(r.reason)}”</p>` : ''}
+        </div>
+      </div>`).join('')}</div>`
+      : '<div class="empty-state"><h3>No low ratings</h3><p class="muted">Students rated 2 stars or less by a coach appear here.</p></div>'}`;
 }
