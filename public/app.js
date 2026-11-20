@@ -229,6 +229,11 @@ async function render() {
   const [rawPath, qs] = location.hash.slice(1).split('?');
   const path = rawPath || '/';
   const params = new URLSearchParams(qs || '');
+  // A new page starts at the top. Without this the browser keeps the scroll position of the previous page,
+  // so e.g. the log-in screen could open half scrolled with its logo under the top bar.
+  // Same page with other options (e.g. the condo class filter) keeps its position.
+  if (path !== state.lastPath) window.scrollTo(0, 0);
+  state.lastPath = path;
   // The slide animation is only for switching between Log in and Sign up, not when arriving from another page
   if (path !== '/login' && path !== '/register') authAnim.last = null;
 
@@ -236,6 +241,7 @@ async function render() {
   const pendingInvite = pendingInviteGet();
   if (state.user && pendingInvite && !path.startsWith('/invite/')) {
     pendingInviteSet(null);
+    state.openedSavedInvite = true;
     location.hash = `#/invite/${pendingInvite}`;
     return;
   }
@@ -1175,8 +1181,16 @@ async function join(classId, params = new URLSearchParams()) {
 
 // The invite code is kept in this browser until the person logs in (localStorage survives the email verification step)
 const PENDING_INVITE_KEY = 'osa_pending_invite';
+// Invite codes are 10 hex characters (see /me/enrollments/:id/invite); anything else is never saved
+const INVITE_CODE_RE = /^[a-f0-9]{10}$/i;
 function pendingInviteGet() {
-  try { return localStorage.getItem(PENDING_INVITE_KEY); } catch (_) { return null; }
+  try {
+    const code = localStorage.getItem(PENDING_INVITE_KEY);
+    return code && INVITE_CODE_RE.test(code) ? code : null;
+  } catch (err) {
+    console.warn('[invite] could not read the saved invite link:', err.message);
+    return null;
+  }
 }
 function pendingInviteSet(code) {
   try {
@@ -1191,6 +1205,11 @@ function pendingInviteSet(code) {
 // Friend's invite landing page: shows the class and whether this account can accept it
 async function invite(code) {
   if (!state.user) {
+    if (!INVITE_CODE_RE.test(code)) {
+      $('#app').innerHTML = `<div class="narrow">${stateBlock('bad', 'This invite does not work', 'This invite link is not valid. Ask your friend to send it again.',
+        '<a href="#/"><button type="button">Find a class</button></a>')}</div>`;
+      return;
+    }
     pendingInviteSet(code);
     $('#app').innerHTML = `
       <section class="invite-hero">
@@ -1209,7 +1228,15 @@ async function invite(code) {
   let info;
   try {
     info = await api(`/invites/${encodeURIComponent(code)}`);
+    state.openedSavedInvite = false;
   } catch (err) {
+    // Opened by itself after logging in (a link saved earlier): do not greet the person with an error page
+    if (state.openedSavedInvite) {
+      state.openedSavedInvite = false;
+      toast('The invite link you opened earlier is no longer valid');
+      location.hash = state.user.role === 'admin' ? '#/admin' : '#/';
+      return;
+    }
     $('#app').innerHTML = `<div class="narrow">${stateBlock('bad', 'This invite does not work', esc(err.message),
       '<a href="#/"><button type="button">Find a class</button></a>')}</div>`;
     return;

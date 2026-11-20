@@ -49,8 +49,10 @@ function versionedIndex() {
 // theme script, allowed by its exact hash), so injected HTML like <img onerror=...> or <script> cannot run
 // even if some text were ever shown without escaping. Images may come from any http(s) site (condo photos).
 function contentSecurityPolicy(html) {
+  // Browsers turn CRLF / CR into LF before hashing an inline script, so hash it the same way.
+  // (On Windows, git can check the file out with CRLF line endings; without this the hash would not match.)
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
-    .map((m) => `'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`);
+    .map((m) => `'sha256-${crypto.createHash('sha256').update(m[1].replace(/\r\n?/g, '\n')).digest('base64')}'`);
   return [
     "default-src 'self'",
     `script-src 'self' ${inline.join(' ')}`.trim(),
