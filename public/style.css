@@ -154,12 +154,13 @@ nav a:hover { color: var(--blue); background: var(--soft); }
 .hero-bg {
   position: absolute; inset: 0; z-index: -2;
   background: url("img/hero.jpg") center 60% / cover no-repeat;
-  /* WebP is about half the size; browsers that cannot show it keep the JPEG above */
-  background-image: image-set(url("img/hero.webp") type("image/webp"), url("img/hero.jpg") type("image/jpeg"));
+  /* The browser takes the first format it supports: AVIF (64 KB) > WebP (130 KB) > JPEG (160 KB).
+     Files are made by "npm run images". Very old browsers keep the JPEG line above. */
+  background-image: image-set(url("img/hero.avif") type("image/avif"), url("img/hero.webp") type("image/webp"), url("img/hero.jpg") type("image/jpeg"));
 }
-/* Phones get a 900px-wide picture (about 55 KB instead of 120 KB) */
+/* Phones get a 900px-wide picture (AVIF 24 KB) */
 @media (max-width: 700px) {
-  .hero-bg { background-image: image-set(url("img/hero-900.webp") type("image/webp"), url("img/hero.jpg") type("image/jpeg")); }
+  .hero-bg { background-image: image-set(url("img/hero-900.avif") type("image/avif"), url("img/hero-900.webp") type("image/webp"), url("img/hero-900.jpg") type("image/jpeg")); }
 }
 .hero::before {
   content: ""; position: absolute; inset: 0; z-index: -1;
@@ -348,7 +349,7 @@ button.block { width: 100%; }
     display: flex; flex-direction: column; justify-content: flex-end; position: relative; isolation: isolate;
     min-height: 560px; border-radius: 24px; overflow: hidden; padding: 36px; color: #fff;
     background: var(--navy) url("img/towers.jpg") center 30% / cover no-repeat; box-shadow: var(--shadow-lg);
-    background-image: image-set(url("img/towers.webp") type("image/webp"), url("img/towers.jpg") type("image/jpeg"));
+    background-image: image-set(url("img/towers.avif") type("image/avif"), url("img/towers.webp") type("image/webp"), url("img/towers.jpg") type("image/jpeg"));
   }
   .auth-visual::before {
     content: ""; position: absolute; inset: 0; z-index: -1;
@@ -1061,3 +1062,7 @@ button.ghost:hover { background: rgba(255, 255, 255, .18); box-shadow: none; }
   .auth-split .auth-card .field { margin-bottom: 8px; }
   .auth-split .auth-card input { padding: 9px 12px; }
 }
+
+/* blur:start (made by npm run images: tiny blurred hero shown while the real photo loads) */
+.hero { background-image: url("data:image/webp;base64,UklGRn4AAABXRUJQVlA4IHIAAAAQBQCdASogABMAPu1kqU4ppaOiMAgBMB2JQBgbhEDZydZbeh4PHhRTtBF6tU9o/+AAAP7VmJUr9vYxbJTS0xbrC9nosxset8yeIYAc0Vc5zFPpVtYcUFoWA8XpmTOdIyEHCNXI/eifbrLuWeZ/6W0BUAA="); background-size: cover; background-position: center 60%; }
+/* blur:end */

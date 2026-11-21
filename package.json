@@ -14,7 +14,8 @@
     "pm2:stop": "pm2 stop octopus",
     "pm2:delete": "pm2 delete octopus",
     "pm2:logs": "pm2 logs octopus",
-    "pm2:status": "pm2 status"
+    "pm2:status": "pm2 status",
+    "images": "node scripts/build-images.js"
   },
   "engines": {
     "node": ">=18"
@@ -33,5 +34,8 @@
     "pm2": "^7.1.2",
     "qrcode": "^1.5.4",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5"
   }
 }

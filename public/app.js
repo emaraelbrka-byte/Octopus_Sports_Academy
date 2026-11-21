@@ -52,7 +52,9 @@ function profileHero(user, stats) {
     </section>`;
 }
 const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
-const LOGO = '<img src="img/logo.svg" alt="">';
+// The server adds ?v=<hash> to the header logo; reusing that exact URL means the logo downloads only once
+const logoSrc = () => document.querySelector('.brand img')?.getAttribute('src') || 'img/logo.svg';
+const LOGO = `<img src="${logoSrc()}" alt="">`;
 
 // ---------- helpers ----------
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -162,6 +164,7 @@ async function loadMe() {
 
 function renderNav() {
   const nav = $('#nav');
+  if (!state.loaded) { nav.innerHTML = ''; return; }
   if (!state.user) {
     // On the Log in / Sign up pages the card already has its own switch, so the top links are hidden there
     const onAuthPage = /^#\/(login|register)(\?|$)/.test(location.hash);
@@ -225,9 +228,20 @@ const routes = [
 
 async function render() {
   clearTimers();
-  if (!state.loaded) await loadMe();
   const [rawPath, qs] = location.hash.slice(1).split('?');
   const path = rawPath || '/';
+  if (!state.loaded) {
+    state.mePromise = state.mePromise || loadMe();
+    if (path === '/') {
+      // Top bar and a saved invite are handled as soon as we know who it is
+      state.mePromise.then(() => {
+        renderNav();
+        if (state.user && pendingInviteGet() && (location.hash.slice(1).split('?')[0] || '/') === '/') render();
+      });
+    } else {
+      await state.mePromise;
+    }
+  }
   const params = new URLSearchParams(qs || '');
   // A new page starts at the top. Without this the browser keeps the scroll position of the previous page,
   // so e.g. the log-in screen could open half scrolled with its logo under the top bar.
@@ -334,7 +348,7 @@ function authPage({ title, sub, body }) {
     <div class="auth-split">
       ${authVisual()}
       <div class="auth">
-        <img class="auth-logo" src="img/logo.svg" alt="">
+        <img class="auth-logo" src="${logoSrc()}" alt="">
         <h1>${title}</h1>
         <p class="sub">${sub}</p>
         <div class="card auth-card"><div class="auth-body fade-in">${body}</div></div>
@@ -369,7 +383,7 @@ function authShell(active, inner) {
     <div class="auth-split">
     ${authVisual()}
     <div class="auth">
-      <img class="auth-logo" src="img/logo.svg" alt="">
+      <img class="auth-logo" src="${logoSrc()}" alt="">
       <h1>Octopus Sports Academy</h1>
       <p class="sub">Book swimming classes at your condo</p>
       <div class="card auth-card">
@@ -594,12 +608,17 @@ function home() {
     try {
       ({ condos } = await api(`/condos?q=${encodeURIComponent(q)}`));
     } catch (err) {
-      $('#results').innerHTML = `<p class="error">Cannot load condos right now (${esc(err.message)}). Please try again in a moment.</p>`;
+      const box = $('#results');
+      if (box) box.innerHTML = `<p class="error">Cannot load condos right now (${esc(err.message)}). Please try again in a moment.</p>`;
       return;
     }
+    // The answer can arrive after the person already went to another page (slow connections): drop it then
+    const box = $('#results');
+    const input = $('#q');
+    if (!box || !input) return;
     // Ignore an old answer if the user has typed something else since
-    if (q !== ($('#q')?.value.trim() ?? '')) return;
-    $('#results').innerHTML = condos.length
+    if (q !== input.value.trim()) return;
+    box.innerHTML = condos.length
       ? `<div class="condo-list">${condos.map((c) => `
           <a class="card" href="#/condo/${esc(c.id)}">
             ${c.image_url ? `<img src="${esc(c.image_url)}" alt="">` : `<span class="condo-tile">${icon('building')}</span>`}

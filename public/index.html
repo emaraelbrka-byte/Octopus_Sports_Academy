@@ -12,6 +12,13 @@
     try { var saved = localStorage.getItem('osa_theme'); if (saved === 'dark' || saved === 'light') t = saved; }
     catch (e) { console.warn('[theme] could not read the saved choice, using dark:', e.message); }
     document.documentElement.dataset.theme = t;
+    if (!location.hash || location.hash === '#' || location.hash === '#/') {
+      var l = document.createElement('link');
+      // Same file the CSS picks (AVIF); a browser without AVIF skips this preload and uses WebP from the CSS
+      l.rel = 'preload'; l.as = 'image'; l.type = 'image/avif'; l.fetchPriority = 'high';
+      l.href = window.matchMedia('(max-width: 700px)').matches ? 'img/hero-900.avif' : 'img/hero.avif';
+      document.head.appendChild(l);
+    }
   </script>
   <link rel="icon" href="img/logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="img/logo.svg">
