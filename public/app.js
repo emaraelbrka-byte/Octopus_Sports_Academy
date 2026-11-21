@@ -465,8 +465,35 @@ function login() {
       </form>
       <p style="text-align:center;margin:14px 0 0"><a href="#/forgot">Forgot password?</a></p>`);
   animateAuth('login');
+  // Not verified yet: offer a new verification email right under the form
+  const offerResend = (identifier) => {
+    if ($('#resendBox')) return;
+    $('#f').insertAdjacentHTML('afterend', `
+      <div id="resendBox" class="result-box" style="margin-top:12px">
+        <p class="muted small" style="margin:0 0 10px">Did not get the email? Check the spam folder, or get a new link.</p>
+        <button type="button" id="resendBtn" class="secondary block">Send the link again</button>
+      </div>`);
+    $('#resendBtn').onclick = async (e) => {
+      const email = identifier.includes('@') ? identifier.trim() : '';
+      if (!email) return toast('Type your email (not your phone number) above, then try again');
+      e.target.disabled = true;
+      try {
+        const r = await api('/auth/resend-verification', { body: { email } });
+        toast(r.message);
+      } catch (err) {
+        toast(err.message);
+      } finally {
+        e.target.disabled = false;
+      }
+    };
+  };
   bindForm('#f', async (data) => {
-    await api('/auth/login', { body: data });
+    try {
+      await api('/auth/login', { body: data });
+    } catch (err) {
+      if (/verify your email/i.test(err.message)) offerResend(data.identifier || '');
+      throw err;
+    }
     await loadMe();
     const pending = sessionStorage.getItem('pendingCheckin');
     if (pending) {

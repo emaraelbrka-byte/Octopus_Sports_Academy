@@ -6,6 +6,7 @@ const { query } = require('../db');
 const { setSessionCookie, clearSessionCookie } = require('../middleware/auth');
 const { createAuthToken, consumeAuthToken } = require('../services/tokens');
 const { sendMail } = require('../services/mailer');
+const { verifyEmail, resetEmail } = require('../services/emailTemplates');
 const { publicBaseUrl } = require('../services/url');
 
 const router = express.Router();
@@ -58,11 +59,7 @@ const loginSchema = z.object({
 async function sendVerifyEmail(user, req) {
   const raw = await createAuthToken(user.id, 'verify');
   const link = `${publicBaseUrl(req)}/#/verify?token=${raw}`;
-  await sendMail({
-    to: user.email,
-    subject: 'Verify your Octopus Sports Academy account',
-    text: `Hi ${user.username},\n\nVerify your account by opening this link (valid 24 hours):\n${link}\n`,
-  });
+  await sendMail({ to: user.email, ...verifyEmail({ username: user.username, link }) });
 }
 
 router.post('/register', authLimiter, async (req, res) => {
@@ -76,8 +73,16 @@ router.post('/register', authLimiter, async (req, res) => {
        RETURNING id, username, email`,
       [username, email, phone, hash]
     );
-    await sendVerifyEmail(rows[0], req);
-    res.status(201).json({ message: 'Account created. Check your email to verify it.' });
+    // The account exists now even if the email fails; tell the person so they can ask for a new link
+    try {
+      await sendVerifyEmail(rows[0], req);
+    } catch (mailErr) {
+      return res.status(201).json({
+        message: 'Account created, but we could not send the verification email right now. Use "Send the link again" on the log-in page in a few minutes.',
+        email_sent: false,
+      });
+    }
+    res.status(201).json({ message: 'Account created. Check your email (and the spam folder) to verify it.', email_sent: true });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Username, email or phone is already registered' });
@@ -96,7 +101,15 @@ router.post('/verify', async (req, res) => {
 router.post('/resend-verification', authLimiter, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const { rows } = await query('SELECT id, username, email, email_verified FROM users WHERE email = $1', [email]);
-  if (rows[0] && !rows[0].email_verified) await sendVerifyEmail(rows[0], req);
+  // Same answer whether or not the account exists (and even if sending fails), so nobody can test which
+  // emails are registered. A sending problem is still written to the logs.
+  if (rows[0] && !rows[0].email_verified) {
+    try {
+      await sendVerifyEmail(rows[0], req);
+    } catch (err) {
+      console.error('[auth] resend verification failed:', err.message);
+    }
+  }
   res.json({ message: 'If that account exists and is not verified, a new email was sent.' });
 });
 
@@ -133,11 +146,12 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
   const { rows } = await query('SELECT id, username, email FROM users WHERE email = $1', [email]);
   if (rows[0]) {
     const raw = await createAuthToken(rows[0].id, 'reset');
-    await sendMail({
-      to: rows[0].email,
-      subject: 'Reset your password',
-      text: `Hi ${rows[0].username},\n\nSet a new password using this link (valid 1 hour):\n${publicBaseUrl(req)}/#/reset?token=${raw}\n\nIf you did not ask for this, ignore this email.`,
-    });
+    const link = `${publicBaseUrl(req)}/#/reset?token=${raw}`;
+    try {
+      await sendMail({ to: rows[0].email, ...resetEmail({ username: rows[0].username, link }) });
+    } catch (err) {
+      console.error('[auth] reset email failed:', err.message); // same answer below, so accounts cannot be discovered
+    }
   }
   // Same response either way, so this form cannot be used to discover accounts
   res.json({ message: 'If the email exists, a reset link was sent.' });

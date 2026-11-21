@@ -10,7 +10,10 @@ const config = {
     host: process.env.SMTP_HOST || '',
     port: Number(process.env.SMTP_PORT) || 587,
     user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
+    // Gmail shows app passwords in groups ("abcd efgh ijkl mnop"); the spaces are not part of it
+    pass: /gmail\.com$/i.test(process.env.SMTP_HOST || '')
+      ? (process.env.SMTP_PASS || '').replace(/\s+/g, '')
+      : process.env.SMTP_PASS || '',
   },
   mailFrom: process.env.MAIL_FROM || 'Octopus Sports Academy <no-reply@octopus.local>',
   lateAfterMinutes: Number(process.env.LATE_AFTER_MINUTES) || 5,

@@ -13,6 +13,7 @@ const coachRoutes = require('./routes/coach');
 const adminRoutes = require('./routes/admin');
 const chatRoutes = require('./routes/chat');
 const { purgeOldMessages } = require('./services/chat');
+const { checkMailSettings } = require('./services/mailer');
 const { pool } = require('./db');
 
 const app = express();
@@ -153,6 +154,7 @@ purgeTimer.unref();
 
 const server = app.listen(config.port, () => {
   console.log(`Octopus Sports Academy running on http://localhost:${config.port} (${config.env})`);
+  checkMailSettings(); // writes to the logs whether the email settings work
 });
 // Close connections that sit idle a little longer than the proxy/tunnel would, so it never reuses a dead one
 server.keepAliveTimeout = 65 * 1000;
